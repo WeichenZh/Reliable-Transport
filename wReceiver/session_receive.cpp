@@ -31,6 +31,7 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 	win_size = wz;
 	isblock = 0;
 	s.init(wz);
+	cout << "s been initialized" << endl;
 }
 
 int WReceiver::set_package(char *data)
@@ -45,7 +46,6 @@ int WReceiver::set_package(char *data)
 	ACKHeader.length = dlen;
 	ACKHeader.checksum = crc32(data, dlen);
 
-	cout << "seq exp :" << ACKHeader.seqNum << endl;
 	memcpy(buffer, (char *)&ACKHeader, total_len);
 	return total_len;
 }
@@ -64,11 +64,13 @@ int WReceiver::decode_package()
 	dlen = recvPacketHeader.length;
 	checksum = recvPacketHeader.checksum;
 
+	cout << "received seqnum is : " << seqNum <<endl;
 	data = (char *)(buffer + sizeof(recvPacketHeader));
 
 	// check corruption
 	if (crc32(data, dlen)!=checksum)
 	{
+		cout <<"crc is not right" <<endl;
 		return -1;
 	}
 
@@ -83,6 +85,7 @@ int WReceiver::decode_package()
 			seq_num = seqNum;
 			type = ACK;
 			isblock=1;
+			cout << "connection is set" <<endl;
 			break;
 		}
 		case END:
@@ -103,21 +106,24 @@ int WReceiver::decode_package()
 			else
 			{
 				seq_exp+=1;
-				while(seq_exp==s.slide(dBuffer))
+				s.slide(dBuffer);
+				while(seq_exp==s.topup())
 				{
 					seq_exp+=1;
+					s.slide(dBuffer);
 					//maybe need saving data
 				}
 			}
 			type = ACK;
 			seq_num = seq_exp;
+			cout << "type: " << type << " seq num: " << seq_num << endl;
 			break;
 		}
 		default:
 			return -1;
 
 	}
-
+	cout << "decoding is correct" << endl;
 	return 0;
 }
 
@@ -149,7 +155,6 @@ int WReceiver::Receiver()
 			&len);
 		if (n_recv<0)
 			error("Error: reading from socket\n");
-		cout << "recv_num :" << n_recv <<endl;
 
 		if (!decode_package())
 		{
@@ -158,16 +163,6 @@ int WReceiver::Receiver()
 				buffer, 
 				buffersize, 
 				0, 
-				(struct sockaddr*)&send_addr,
-				len);
-			cout << "n_send:" << n_send <<endl;
-		}
-		else 
-		{
-			sendto(sockfd,
-				"The connection is rejected.\n",
-				28,
-				0,
 				(struct sockaddr*)&send_addr,
 				len);
 		}
