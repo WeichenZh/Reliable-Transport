@@ -105,6 +105,7 @@ int WReceiver::decode_package()
 				int index;
 				index = seqNum - seq_exp;
 				s.push(seqNum, data, index);
+				seq_num = seqNum;
 			}
 			else
 			{
@@ -116,9 +117,9 @@ int WReceiver::decode_package()
 					s.slide(dBuffer);
 					//maybe need saving data
 				}
+				seq_num = seq_exp;
 			}
 			ptype = ACK;
-			seq_num = seq_exp;
 			break;
 		}
 		default:
