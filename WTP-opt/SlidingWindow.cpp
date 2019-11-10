@@ -56,7 +56,7 @@ int slidingwindow::push(int seq, char *data, int index)
 {
     // cout << "seq in s:" << seq << endl;
     // cout << "index in s:" << index << endl << endl;
-    if(index > m_size || index < 0)
+    if(index >= m_size || index < 0)
         return -1;
 
     m_data[(m_front+index)%m_size] = seq;
