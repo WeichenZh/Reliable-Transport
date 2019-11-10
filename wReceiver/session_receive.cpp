@@ -139,35 +139,38 @@ int WReceiver::Receiver()
     {
         error("bind");
     }
-
-	int n_recv = recvfrom(sockfd, 
-		buffer, 
-		buffersize, 
-		0, 
-		(sockaddr *)&send_addr,
-		&len);
-	if (n_recv<0)
-		error("Error: reading from socket\n");
-
-
-	if (!decode_package())
-	{
-		int len_packet = set_package((char *)"");
-		sendto(sockfd, 
+    while(1)
+    {
+		int n_recv = recvfrom(sockfd, 
 			buffer, 
 			buffersize, 
 			0, 
-			(struct sockaddr*)&send_addr,
-			len);
-	}
-	else 
-	{
-		sendto(sockfd,
-			"The connection is rejected.\n",
-			28,
-			0,
-			(struct sockaddr*)&send_addr,
-			len);
+			(sockaddr *)&send_addr,
+			&len);
+		if (n_recv<0)
+			error("Error: reading from socket\n");
+		cout << "recv_num :" << n_recv <<endl;
+
+		if (!decode_package())
+		{
+			int len_packet = set_package((char *)"");
+			int n_send = sendto(sockfd, 
+				buffer, 
+				buffersize, 
+				0, 
+				(struct sockaddr*)&send_addr,
+				len);
+			cout << "n_send:" << n_send <<endl;
+		}
+		else 
+		{
+			sendto(sockfd,
+				"The connection is rejected.\n",
+				28,
+				0,
+				(struct sockaddr*)&send_addr,
+				len);
+		}
 	}
 	close(sockfd);
 	return 0;
