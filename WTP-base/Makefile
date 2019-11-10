@@ -5,13 +5,8 @@ LDFLAGS = -g -std=c++11
 TP=../starter_files/
 TOOLS=$(wildcard $(TP)*.h)
 
-all: send rpt
+all: send recv
 
-rpt: repeater.o
-	$(CXX) $(LDFLAGS) -o repeater repeater.o
-
-repeater.o: repeater.cpp
-	$(CXX) $(LDFLAGS) -c repeater.cpp
 
 send: wSender.o session_send.o
 	$(CXX) $(LDFLAGS) -o wSender wSender.o session_send.o
@@ -22,6 +17,20 @@ wSender.o: wSender.cpp session_send.h
 session_send.o: session_send.h $(TOOLS)
 	$(CXX) $(LDFLAGS) -c -I $(TP) session_send.cpp
 
+wReceiver : wReceiver.o utils.o session_receive.o SlidingWindow.o
+        g++ -o wReceiver wReceiver.o utils.o session_receive.o SlidingWindow.o
+
+wReceiver.o : wReceiver.cpp session_receive.h
+        g++ -c wReceiver.cpp
+
+session_receive.o : session_receive.cpp session_receive.h SlidingWindow.h utils.h
+        g++ -c session_receive.cpp
+
+SlidingWindow.o : SlidingWindow.cpp SlidingWindow.h
+        g++ -c SlidingWindow.cpp
+
+utils.o : utils.cpp
+        g++ -c utils.cpp
 
 clean:
 	$(RM) *.o wSender wReceiver
