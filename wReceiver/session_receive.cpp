@@ -45,6 +45,7 @@ int WReceiver::set_package(char *data)
 	ACKHeader.length = dlen;
 	ACKHeader.checksum = crc32(data, dlen);
 
+	cout << "seq exp :" << ACKHeader.seqNum << endl;
 	memcpy(buffer, (char *)&ACKHeader, total_len);
 	return total_len;
 }
@@ -71,7 +72,6 @@ int WReceiver::decode_package()
 		return -1;
 	}
 
-	cout << "here?" << endl;
 	switch (type)
 	{
 		case START:
@@ -149,8 +149,6 @@ int WReceiver::Receiver()
 	if (n_recv<0)
 		error("Error: reading from socket\n");
 
-	cout << "revieved datasize: " << n_recv <<endl;
-	cout << buffer<<endl;
 
 	if (!decode_package())
 	{
@@ -164,7 +162,6 @@ int WReceiver::Receiver()
 	}
 	else 
 	{
-		cout << "here?" << endl;
 		sendto(sockfd,
 			"The connection is rejected.\n",
 			28,
