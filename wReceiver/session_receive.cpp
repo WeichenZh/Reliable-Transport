@@ -1,4 +1,6 @@
 # include <iostream>
+# include <fstream>
+
 # include <sys/types.h>
 # include <sys/socket.h>
 # include <netinet/in.h>
@@ -31,7 +33,9 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 	win_size = wz;
 	isblock = 0;
 	s.init(wz);
-	cout << "s been initialized" << endl;
+	ofstream log;
+	log.open(log_path, ios::trunc);
+	log.close();
 }
 
 int WReceiver::set_package(char *data)
@@ -41,12 +45,13 @@ int WReceiver::set_package(char *data)
 
 	PacketHeader ACKHeader;
 	
-	ACKHeader.type = type;					// class varible
+	ACKHeader.type = ptype;					// class varible
 	ACKHeader.seqNum = seq_num;				// class varible
 	ACKHeader.length = dlen;
 	ACKHeader.checksum = crc32(data, dlen);
 
 	memcpy(buffer, (char *)&ACKHeader, total_len);
+
 	return total_len;
 }
 
@@ -64,7 +69,6 @@ int WReceiver::decode_package()
 	dlen = recvPacketHeader.length;
 	checksum = recvPacketHeader.checksum;
 
-	cout << "received seqnum is : " << seqNum <<endl;
 	data = (char *)(buffer + sizeof(recvPacketHeader));
 
 	// check corruption
@@ -83,15 +87,14 @@ int WReceiver::decode_package()
 
 			seq_exp = 0;
 			seq_num = seqNum;
-			type = ACK;
+			ptype = ACK;
 			isblock=1;
-			cout << "connection is set" <<endl;
 			break;
 		}
 		case END:
 		{
 			seq_num = seqNum;
-			type = ACK;
+			ptype = ACK;
 			isblock=0;
 			break;
 		}
@@ -114,16 +117,28 @@ int WReceiver::decode_package()
 					//maybe need saving data
 				}
 			}
-			type = ACK;
+			ptype = ACK;
 			seq_num = seq_exp;
-			cout << "type: " << type << " seq num: " << seq_num << endl;
 			break;
 		}
 		default:
 			return -1;
 
 	}
-	cout << "decoding is correct" << endl;
+	return 0;
+}
+
+int WReceiver::log(char *message, char *lp)
+{
+	PacketHeader *PkHeader;
+	PkHeader = (struct PacketHeader *)message;
+	ofstream log;
+
+    log.open(log_path, ios::app);
+    log <<  PkHeader->type << " " << PkHeader->seqNum 
+    	<< " " << PkHeader->length << " " << PkHeader->checksum << "\n";;
+	log.close();
+
 	return 0;
 }
 
@@ -133,7 +148,6 @@ int WReceiver::Receiver()
 	socklen_t len = sizeof(send_addr);
 	int sockfd;
 	
-	// // sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if((sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 		error("Error opening socket\n");
 
@@ -155,16 +169,20 @@ int WReceiver::Receiver()
 			&len);
 		if (n_recv<0)
 			error("Error: reading from socket\n");
+		log(buffer, log_path);
 
 		if (!decode_package())
 		{
 			int len_packet = set_package((char *)"");
 			int n_send = sendto(sockfd, 
 				buffer, 
-				buffersize, 
+				20, 
 				0, 
 				(struct sockaddr*)&send_addr,
 				len);
+			if(n_send < 0)
+				error("Error: writting to socket\n");
+			log(buffer, log_path);
 		}
 	}
 	close(sockfd);

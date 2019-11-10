@@ -15,7 +15,7 @@ class WReceiver
 
 	// socket
 	int socket;
-	unsigned int seq_num, seq_exp, type; 	// seq_num should always equal to seq_exp, except when type=START/END
+	unsigned int seq_num, seq_exp, ptype; 	// seq_num should always equal to seq_exp, except when type=START/END
 	int isblock;							//block other connection
 
 	// receive & ACK
@@ -26,6 +26,7 @@ public:
 	WReceiver(int pt_num, int wz, const char *od, const char *lp);
 	int set_package(char *data);
 	int decode_package();
+	int log(char *message, char *lp);
 	int Receiver();
 
 };

@@ -24,7 +24,7 @@ class slidingwindow
 
         bool isFull() ;
 
-        void push(int seq, char *data, int index);
+        int push(int seq, char *data, int index);
 
         int slide(char *output_data);
 
