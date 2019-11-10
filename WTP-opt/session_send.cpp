@@ -159,8 +159,9 @@ void WSender::send(char const *path){
             if (n < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
             packet[n] = '\0';
 
-            //printf("recv--Seq: %d, Type: %d\n",wdphdr->seqNum,wdphdr->type);
+            printf("recv--Seq: %d, Type: %d\n",wdphdr->seqNum,wdphdr->type);
             if (wdphdr->type != 3) err("recv nonACK");
+            /*
             int seq_required = (wdphdr->seqNum)-seq_head_buff;
             if (seq_required > (seq-seq_head_buff)){
                 for (int i = 0; i < seq_required; ++i){
@@ -168,8 +169,9 @@ void WSender::send(char const *path){
                 }
                 seq = (wdphdr->seqNum);
             }
-            /*
-            acks[wdphdr->seqNum-seq_head_buff-1] = true;
+            */
+            int seq_acked = (wdphdr->seqNum)-seq_head_buff;
+            acks[seq_acked] = true;
             printf("%s\n", "OK");
             if (acks[seq-seq_head_buff]){
                 while (acks[seq-seq_head_buff]) {
@@ -182,7 +184,7 @@ void WSender::send(char const *path){
                 tmr.restart();
                 break;
             }
-            */
+            
             if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
         }
         /*
