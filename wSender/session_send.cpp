@@ -48,8 +48,8 @@ WSender::WSender(char const *ho, int pt, int ws, char const *lp){
     ofstream fileout(log_path,ios::trunc);
 }
 
-int WSender::set_package(char *d, int type){
-    int len = strlen(d);
+int WSender::set_package(char *d, int type, int len=0){
+    //int len = strlen(d);
     int tot_len = sizeof(struct PacketHeader) + len;
     //set header
     char *buf = packet;
@@ -111,7 +111,8 @@ void WSender::send(char const *path){
     si_other.sin_port = htons(port);
     si_other.sin_addr.s_addr = inet_addr(host);
     //START
-    int n, len_package, tot_seq = seq + strlen(input_data)/(DATALEN-sizeof(struct PacketHeader)) + 1;
+    int dataFrameSize = (DATALEN-sizeof(struct PacketHeader));
+    int n, len_package, tot_seq = seq + strlen(input_data)/dataFrameSize + 1;
     vector <bool> acks;
     acks.resize(win_size,false);
     
@@ -130,14 +131,16 @@ void WSender::send(char const *path){
     Timer tmr;
 
     printf("DATA\n");
+    char data_buffer[dataFrameSize];
+    printf("dataFrameSize: %d, real: %d\n", dataFrameSize, sizeof(data_buffer));
     while (seq < tot_seq){
         //send
         seq_curr = seq;
         for (int i = 0; i < win_size && seq_curr < tot_seq; ++i){
             if (acks[i]) continue;
             printf("send-- seq: %d, %d\n", seq_curr, _get_curr_seq());
-            strncpy(data_buffer,input_data+_get_curr_seq()*DATALEN,DATALEN);
-            len_package = set_package(data_buffer, 2);
+            strncpy(data_buffer,input_data+_get_curr_seq()*dataFrameSize,dataFrameSize);
+            len_package = set_package(data_buffer, 2, dataFrameSize);
             write_to_logfile();
             sendto(sockfd, (const char *)packet, len_package, 0, 
                    (const struct sockaddr *) &si_other, slen); 
@@ -145,14 +148,19 @@ void WSender::send(char const *path){
             seq_curr++;
         }
 
-        n = recvfrom(sockfd, (char *)packet, BUFFERSIZESMALL, 0, 
-                     (struct sockaddr *) &si_other, &slen); 
+        n = 1; 
         int seq_head_buff = seq;
-        while (n!=-1){
+        PacketHeader *wdphdr = (struct PacketHeader*) packet;
+        while (1){
+            n = recvfrom(sockfd, (char *)packet, BUFFERSIZESMALL, 0, 
+                         (struct sockaddr *) &si_other, &slen);
+            printf("recv_len: %d\n", n);
+            if (n < 0) break;
+            if (n < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
             packet[n] = '\0';
 
-            PacketHeader *wdphdr = (struct PacketHeader*) packet; 
-            //printf("recv: %d\n",wdphdr->seqNum);
+            printf("recv--Seq: %d, Type: %d\n",wdphdr->seqNum,wdphdr->type);
+            printf("%s\n", packet);
             if (wdphdr->type != 3) err("recv nonACK");
             acks[wdphdr->seqNum-seq_head_buff-1] = true;
             //if (wdphdr->seqNum == seq+1){
@@ -168,8 +176,6 @@ void WSender::send(char const *path){
                 break;
             }
             if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
-            n = recvfrom(sockfd, (char *)packet, BUFFERSIZESMALL, 0, 
-                         (struct sockaddr *) &si_other, &slen);
         }
         if (n==-1){ 
             printf("%s\n", "TIMEOUT");

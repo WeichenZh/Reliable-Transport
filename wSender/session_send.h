@@ -22,7 +22,7 @@ class WSender
     int seq, seq_curr, seq_st;
 
     //read_file
-    char input_data[BUFFERSIZE], packet[BUFFERSIZESMALL], data_buffer[DATALEN];
+    char input_data[BUFFERSIZE], packet[DATALEN];//, data_buffer[DATALEN];
 
     //other
 
@@ -31,7 +31,7 @@ class WSender
     int _get_seq() { return seq - seq_st;}
     int _get_curr_seq() { return seq_curr - seq_st;}
     void write_to_logfile();
-    int set_package(char *d, int type);
+    int set_package(char *d, int type, int len);
     void decode_package();
     void read_to_data(char const *path);
 public:
