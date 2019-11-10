@@ -24,8 +24,8 @@ class slidingwindow
 
         bool isFull() ;
 
-        void push(int seq, char *data, int index)throw(bad_exception);
+        void push(int seq, char *data, int index);
 
-        int slide(char *output_data)throw(bad_exception);
+        int slide(char *output_data);
 };
 # endif

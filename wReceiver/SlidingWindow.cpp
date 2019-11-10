@@ -53,21 +53,21 @@ bool slidingwindow::isFull()
     return m_front == (m_rear + 1)%m_size;
 }  
 
-void slidingwindow::push(int seq, char *data, int index)throw(bad_exception)
+void slidingwindow::push(int seq, char *data, int index)
 {
     if(isFull() || index > m_size || index < 0)
     {
-        throw bad_exception();
+        error("Error: window is full or index is invalid\n");
     }
     m_data[(m_front+index)%m_size] = seq;
     strcpy(m_buffer+((m_front+index)%m_size*buffersize), data);
 }
 
-int slidingwindow::slide(char *output_data) throw(bad_exception)
+int slidingwindow::slide(char *output_data)
 {
     if(isEmpty())
     {
-        throw bad_exception();
+        error("Error: window is empty\n");
     }
     int tmp = m_data[m_front];
     strcpy(output_data, m_buffer+m_front*buffersize);
