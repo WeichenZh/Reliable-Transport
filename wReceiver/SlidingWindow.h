@@ -27,5 +27,7 @@ class slidingwindow
         void push(int seq, char *data, int index);
 
         int slide(char *output_data);
+
+        int topup();
 };
 # endif

@@ -83,3 +83,9 @@ int slidingwindow::slide(char *output_data)
     // cout << endl;
     return tmp;
 }
+
+// return the first number of the window, but not pop out.
+int slidingwindow::topup()
+{
+    return m_data[m_front];
+}
