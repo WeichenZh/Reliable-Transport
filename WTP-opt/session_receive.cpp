@@ -115,6 +115,7 @@ int WReceiver::decode_package()
 			}
 			else
 			{
+				seq_num = seq_exp;
 				seq_exp+=1;
 				s.slide(dBuffer);
 				while(seq_exp==s.topup())
@@ -123,7 +124,6 @@ int WReceiver::decode_package()
 					s.slide(dBuffer);
 					//maybe need saving data
 				}
-				seq_num = seq_exp;
 			}
 			ptype = ACK;
 			break;
