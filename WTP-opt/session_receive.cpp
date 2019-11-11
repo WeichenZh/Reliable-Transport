@@ -49,8 +49,14 @@ int WReceiver::set_package(char *data)
 	ACKHeader.seqNum = seq_num;				// class varible
 	ACKHeader.length = dlen;
 	ACKHeader.checksum = crc32(data, dlen);
-
+	
 	memcpy(buffer, (char *)&ACKHeader, total_len);
+
+	char *buf;
+	buf = buffer;
+	PacketHeader *pk;
+	pk = (struct PacketHeader *)buf;
+	cout << pk->type << " " << pk->seqNum << " " << pk->length << endl;
 
 	return total_len;
 }
