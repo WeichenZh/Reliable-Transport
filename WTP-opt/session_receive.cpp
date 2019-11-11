@@ -52,11 +52,11 @@ int WReceiver::set_package(char *data)
 	
 	memcpy(buffer, (char *)&ACKHeader, total_len);
 
-	char *buf;
-	buf = buffer;
-	PacketHeader *pk;
-	pk = (struct PacketHeader *)buf;
-	cout << pk->type << " " << pk->seqNum << " " << pk->length << endl;
+	// char *buf;
+	// buf = buffer;
+	// PacketHeader *pk;
+	// pk = (struct PacketHeader *)buf;
+	// cout << pk->type << " " << pk->seqNum << " " << pk->length << endl;
 
 	return total_len;
 }
