@@ -5,6 +5,7 @@
 #include <time.h> 
 #include <iostream>
 #include <fstream>
+//#include <ifstream>
 #include <string.h> 
 #include <arpa/inet.h> 
 #include <netinet/in.h> 
@@ -74,17 +75,18 @@ void WSender::decode_package(){
 
 void WSender::send(char const *path){
     //read input data
-    read_to_data(path);
+    int fileSize = read_to_data(path);
 
 
     //prepare data for debug
+    /*
     char *hello = "Hello from client", *chptr=input_data;
     for (int i = 0; i < 10000; ++i){
         strcpy(chptr, hello);
         chptr += strlen(hello);
     } 
     strcpy(chptr, "FIN");
-    
+    */
     //UDP connect
     struct sockaddr_in si_me, si_other; 
     socklen_t slen = sizeof(si_other);
@@ -110,7 +112,7 @@ void WSender::send(char const *path){
     //START
     int dataFrameSize = (DATALEN-sizeof(struct PacketHeader));
     data_buffer[dataFrameSize] = '\0';
-    int n, len_package, tot_seq = seq + (strlen(input_data)/dataFrameSize) + 1;//TODO
+    int n, len_package, tot_seq = seq + (fileSize/dataFrameSize) + 1;//TODO
     vector <bool> acks;
     acks.resize(win_size,false);
     
@@ -209,8 +211,15 @@ void WSender::send(char const *path){
     close(sockfd); 
 }
 
-void WSender::read_to_data(char const *path){
-    //plz read file "path" to WSender.data 
+int WSender::read_to_data(char const *path){
+    std::ifstream fin(path, std::ios::binary);
+    fin.seekg(0, std::ios::end);
+    //data.resize(fin.tellg());
+    int sz = fin.tellg();
+    fin.seekg(0, std::ios::beg);
+    fin.read(input_data, sz);
+    return sz;
+    //plz read file "path" to WSender.inputdata 
 }
 
 

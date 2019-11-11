@@ -33,7 +33,7 @@ class WSender
     void write_to_logfile();
     int set_package(char *d, int type, int len);
     void decode_package();
-    void read_to_data(char const *path);
+    int read_to_data(char const *path);
 public:
     WSender(char const *ho, int pt, int ws, char const *lp);
     void send(char const *path);

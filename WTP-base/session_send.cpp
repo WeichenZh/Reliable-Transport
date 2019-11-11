@@ -215,8 +215,15 @@ void WSender::send(char const *path){
     close(sockfd); 
 }
 
-void WSender::read_to_data(char const *path){
-    //plz read file "path" to WSender.data 
+int WSender::read_to_data(char const *path){
+    std::ifstream fin(path, std::ios::binary);
+    fin.seekg(0, std::ios::end);
+    //data.resize(fin.tellg());
+    int sz = fin.tellg();
+    fin.seekg(0, std::ios::beg);
+    fin.read(input_data, sz);
+    return sz;
+    //plz read file "path" to WSender.inputdata 
 }
 
 
