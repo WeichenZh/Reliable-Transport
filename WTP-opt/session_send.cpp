@@ -114,10 +114,8 @@ void WSender::send(char const *path){
     vector <bool> acks;
     acks.resize(win_size,false);
     
-    //bool acks[tot_seq];
-    //memset(acks, false, tot_seq*sizeof(bool));
     int seq_st_true = rand() % BUFFERSIZE;
-    seq = seq_st_true;
+    seq_curr = seq_st_true;
     //printf("data: %d\n", strlen(input_data));
     //printf("tot_seq: %d\n", tot_seq);
     len_package = set_package("", 0);
@@ -138,6 +136,7 @@ void WSender::send(char const *path){
         int win_size_real = min(win_size, tot_seq-seq);
         for (int i = 0; i < win_size_real; ++i){
         //for (int i = win_size_real-1; i >= 0 ; --i){
+            //if (i==7) continue;
             if (acks[i]) continue;
             seq_curr = seq+i;
             int data_size = (seq_curr == tot_seq-1) ? (sizeof(input_data)%dataFrameSize):dataFrameSize;
@@ -159,23 +158,16 @@ void WSender::send(char const *path){
             if (n < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
             packet[n] = '\0';
 
-            printf("recv--Seq: %d, Type: %d\n",wdphdr->seqNum,wdphdr->type);
+            //printf("recv--Seq: %d, Type: %d\n",wdphdr->seqNum,wdphdr->type);
             if (wdphdr->type != 3) err("recv nonACK");
-            /*
-            int seq_required = (wdphdr->seqNum)-seq_head_buff;
-            if (seq_required > (seq-seq_head_buff)){
-                for (int i = 0; i < seq_required; ++i){
-                    acks[i] = true;
-                }
-                seq = (wdphdr->seqNum);
-            }
-            */
+
             int seq_acked = (wdphdr->seqNum)-seq_head_buff;
             acks[seq_acked] = true;
-            printf("%s\n", "OK");
+            //printf("%d\n", seq-seq_head_buff);
             if (acks[seq-seq_head_buff]){
                 while (acks[seq-seq_head_buff]) {
                     seq++;
+                    if (seq-seq_head_buff == win_size) break;
                 }
                 tmr.restart();
             }
@@ -184,7 +176,6 @@ void WSender::send(char const *path){
                 tmr.restart();
                 break;
             }
-            
             if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
         }
         /*
@@ -209,6 +200,7 @@ void WSender::send(char const *path){
     len_package = set_package("", 1);
     sendto(sockfd, (const char *)packet, len_package, 0, 
            (const struct sockaddr *) &si_other, slen); 
+    write_to_logfile();
     
     n = recvfrom(sockfd, (char *)packet, BUFFERSIZESMALL, MSG_WAITALL, 
                  (struct sockaddr *) &si_other, &slen); 
