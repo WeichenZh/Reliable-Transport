@@ -196,6 +196,7 @@ int WReceiver::Receiver()
 			break;
 	}
 	close(sockfd);
+	cout << "socket is closed" << endl;
 	return 0;
 
 }
