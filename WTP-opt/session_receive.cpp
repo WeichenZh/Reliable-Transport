@@ -75,6 +75,7 @@ int WReceiver::decode_package()
 	dlen = recvPacketHeader.length;
 	checksum = recvPacketHeader.checksum;
 
+	stype = type;
 	data = (char *)(buffer + sizeof(recvPacketHeader));
 
 	// check corruption
@@ -191,6 +192,8 @@ int WReceiver::Receiver()
 				error("Error: writting to socket\n");
 			log(buffer, log_path);
 		}
+		if(WReceiver::stype == END)
+			break;
 	}
 	close(sockfd);
 	return 0;
