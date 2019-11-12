@@ -24,7 +24,10 @@ int main(int argc, char const *argv[])
 	log_path = argv[4];
 
 	WReceiver receiver(port, win_size, output_dir, log_path);
-	receiver.Receiver();
+	while(1)
+	{
+		receiver.Receiver();
+	}
 
 	return 0;
 }
