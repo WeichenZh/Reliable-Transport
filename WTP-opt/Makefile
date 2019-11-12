@@ -7,7 +7,6 @@ TOOLS=$(wildcard $(TP)*.h)
 
 all: send recv
 
-
 send: wSender.o session_send.o
 	$(CXX) $(LDFLAGS) -o wSender wSender.o session_send.o
 

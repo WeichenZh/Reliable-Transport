@@ -7,6 +7,8 @@
 #define IPSIZE 30
 #include <chrono>
 #include <vector>
+#include <sys/socket.h> 
+#include "../starter_files/PacketHeader.h"
 using namespace std;
 
 
@@ -22,7 +24,8 @@ class WSender
     int seq, seq_curr, seq_st;
 
     //read_file
-    char input_data[BUFFERSIZE], packet[DATALEN], data_buffer[DATALEN];
+    char input_data[BUFFERSIZE], send_buff[BUFFERSIZESMALL], recv_buff[DATALEN], data_buffer[DATALEN];
+    int len_send, len_recv;
 
     //other
 
@@ -30,10 +33,12 @@ class WSender
     int _get_seq(int sq) { return sq - seq_st;}
     int _get_seq() { return seq - seq_st;}
     int _get_curr_seq() { return seq_curr - seq_st;}
-    void write_to_logfile();
-    int set_package(char *d, int type, int len);
+    void write_to_logfile(PacketHeader *wdphdr);
+    void set_package(char *d, int type, int len);
     void decode_package();
     int read_to_data(char const *path);
+    void my_send(const sockaddr *si_other, socklen_t slen);
+    void my_recv(sockaddr *si_other, socklen_t *slen);
 public:
     WSender(char const *ho, int pt, int ws, char const *lp);
     void send(char const *path);

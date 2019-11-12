@@ -1,6 +1,5 @@
 #include <unistd.h> 
 #include <stdio.h> 
-#include <sys/socket.h> 
 #include <stdlib.h> 
 #include <time.h> 
 #include <iostream>
@@ -13,7 +12,6 @@
 #include <vector>
 
 #include "../starter_files/crc32.h"
-#include "../starter_files/PacketHeader.h"
 
 
 using namespace std;
@@ -48,40 +46,54 @@ WSender::WSender(char const *ho, int pt, int ws, char const *lp){
     ofstream fileout(log_path,ios::trunc);
 }
 
-int WSender::set_package(char *d, int type, int len=0){
+void WSender::set_package(char *d, int type, int len=0){
     //int len = strlen(d);
     int tot_len = sizeof(struct PacketHeader) + len;
+    memset(send_buff, 0, BUFFERSIZESMALL); 
     //set header
-    char *packet_ptr = packet;
-    PacketHeader *wdphdr = (struct PacketHeader*) packet;
+    char *packet_ptr = send_buff;
+    PacketHeader *wdphdr = (struct PacketHeader*) send_buff;
     wdphdr->type = type;
     wdphdr->seqNum = seq_curr;
     wdphdr->length = len;
     wdphdr->checksum = crc32(d, len);
     //copy data
-    char *send_buff = (char *) (packet_ptr + sizeof(struct PacketHeader));
-    if (len>0) memcpy(send_buff, d, len);
-    return tot_len;
+    char *data_ptr = (char *) (packet_ptr + sizeof(struct PacketHeader));
+    if (len>0) memcpy(data_ptr, d, len);
+    len_send = tot_len;
 }
 
 void WSender::decode_package(){
-    char *buf = packet;
+    char *buf = send_buff;
     PacketHeader *wdphdr = (struct PacketHeader*) buf;
     printf("decoding: %d,%d,%d\n", wdphdr->type, wdphdr->seqNum, wdphdr->length);
     char *recv_buff = (char *) (buf + sizeof(struct PacketHeader));
     printf("%s\n", recv_buff);
 }
 
+void WSender::my_send(const struct sockaddr *si_other, socklen_t slen){
+    sendto(sockfd, (const char *)send_buff, len_send, 0, si_other, slen); 
+    write_to_logfile((struct PacketHeader*) send_buff);
+}
+
+void WSender::my_recv(struct sockaddr *si_other, socklen_t *slen){
+    len_recv = recvfrom(sockfd, recv_buff, DATALEN, 0, si_other, slen);
+    if (len_recv>0) {
+        write_to_logfile((struct PacketHeader*) recv_buff); 
+        recv_buff[len_recv] = '\0';
+    }
+}
+
 void WSender::send(char const *path){
     //read input data
+    srand(time(NULL));
     read_to_data(path);
 
-
     //prepare data for debug
-    char *hello = "Hello from client", *chptr=input_data;
+    char *chptr=input_data;
     for (int i = 0; i < 10000; ++i){
-        strcpy(chptr, hello);
-        chptr += strlen(hello);
+        strcpy(chptr, "Hello from client");
+        chptr += 17;
     } 
     strcpy(chptr, "FIN");
     
@@ -107,129 +119,99 @@ void WSender::send(char const *path){
     si_other.sin_family = AF_INET; 
     si_other.sin_port = htons(port);
     si_other.sin_addr.s_addr = inet_addr(host);
-    //START
+
     int dataFrameSize = (DATALEN-sizeof(struct PacketHeader));
     data_buffer[dataFrameSize] = '\0';
-    int n, len_package, tot_seq = seq + (strlen(input_data)/dataFrameSize) + 1;//TODO
+    int tot_seq = seq + (strlen(input_data)/dataFrameSize) + 1;//TODO
     vector <bool> acks;
     acks.resize(win_size,false);
     
-    //bool acks[tot_seq];
-    //memset(acks, false, tot_seq*sizeof(bool));
+    //START
     int seq_st_true = rand() % BUFFERSIZE;
-    seq = seq_st_true;
-    //printf("data: %d\n", strlen(input_data));
-    //printf("tot_seq: %d\n", tot_seq);
-    len_package = set_package("", 0);
-    sendto(sockfd, (const char *)packet, len_package, 0, 
-           (const struct sockaddr *) &si_other, slen); 
-    write_to_logfile();
-    //recv
-    n = recvfrom(sockfd, (char *)packet, BUFFERSIZESMALL, 0, 
-                 (struct sockaddr *) &si_other, &slen); 
-    packet[n] = '\0';
-    Timer tmr;
-    seq = 0; // rand() % BUFFERSIZE;
+    seq_curr = seq_st_true;
+    set_package(nullptr, 0);
+    //decode_package();
+    len_recv = -1; 
+    while (len_recv<0){
+        my_send((const struct sockaddr *) &si_other, slen);
+        my_recv((struct sockaddr *) &si_other, &slen);
+    }
+
+    //DATA from 0
+    seq = 0;
     seq_curr = seq;
     seq_st = seq;
 
     while (seq < tot_seq){
         //send
         int win_size_real = min(win_size, tot_seq-seq);
-        for (int i = 0; i < win_size_real; ++i){
-        //for (int i = win_size_real-1; i >= 0 ; --i){
+        //for (int i = 0; i < win_size_real; ++i){
+        for (int i = win_size_real-1; i >= 0 ; --i){
+            if (i==7) continue;
             if (acks[i]) continue;
             seq_curr = seq+i;
             int data_size = (seq_curr == tot_seq-1) ? (sizeof(input_data)%dataFrameSize):dataFrameSize;
             //printf("send-- seq: %d, %d, size: %d\n", seq_curr, _get_curr_seq(), data_size);
             memcpy(data_buffer,input_data+_get_curr_seq()*dataFrameSize,data_size);
-            len_package = set_package(data_buffer, 2, data_size);
-            write_to_logfile();
-            sendto(sockfd, (const char *)packet, len_package, 0, 
-                   (const struct sockaddr *) &si_other, slen); 
+            set_package(data_buffer, 2, data_size);
+            my_send((const struct sockaddr *) &si_other, slen);
         }
 
-        n = 1; 
+        //len_recv = 1; 
         int seq_head_buff = seq;
-        PacketHeader *wdphdr = (struct PacketHeader*) packet;
+        PacketHeader *wdphdr = (struct PacketHeader*) recv_buff;
         while (1){
-            n = recvfrom(sockfd, (char *)packet, BUFFERSIZESMALL, 0, 
-                         (struct sockaddr *) &si_other, &slen);
-            if (n < 0) break;
-            if (n < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
-            packet[n] = '\0';
-
+            my_recv((struct sockaddr *) &si_other, &slen);
             //printf("recv--Seq: %d, Type: %d\n",wdphdr->seqNum,wdphdr->type);
-            if (wdphdr->type != 3) err("recv nonACK");
+            if (len_recv < 0) break;
+            if (len_recv < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
+            if (wdphdr->type != 3) continue;//err("recv nonACK");
+
             int seq_required = (wdphdr->seqNum)-seq_head_buff;
             if (seq_required > (seq-seq_head_buff)){
-                for (int i = 0; i < seq_required; ++i){
-                    acks[i] = true;
-                }
+                for (int i = 0; i < seq_required; ++i) acks[i] = true;
                 seq = (wdphdr->seqNum);
             }
-            /*
-            acks[wdphdr->seqNum-seq_head_buff-1] = true;
-            printf("%s\n", "OK");
-            if (acks[seq-seq_head_buff]){
-                while (acks[seq-seq_head_buff]) {
-                    seq++;
-                }
-                tmr.restart();
-            }
-            else if (tmr.duration_ms() > 500){//timeout
-                printf("%s\n", "should not use this!");
-                tmr.restart();
-                break;
-            }
-            */
             if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
         }
-        /*
-        if (n==-1){ 
-            printf("%s\n", "TIMEOUT");
+        if (len_recv==-1){ 
+            //printf("%s\n", "TIMEOUT");
         }
-        */
+
+        //rearrange acks
         int diff = seq-seq_head_buff;
         int rest = win_size - diff;
         //printf("diff:%d| rest:%d\n", diff, rest);
-        for (int i = 0; i < rest; ++i){
-            acks[i] = acks[i+diff];
-        }
-        for (int i = rest; i < win_size; ++i){
-            acks[i] = false;
-        }
+        for (int i = 0; i < rest; ++i) acks[i] = acks[i+diff];
+        for (int i = rest; i < win_size; ++i) acks[i] = false;
     }
     
     //FIN
     seq_curr = seq_st_true;
-    memset(packet, 0, DATALEN); 
-    len_package = set_package("", 1);
-    sendto(sockfd, (const char *)packet, len_package, 0, 
-           (const struct sockaddr *) &si_other, slen); 
-    
-    n = recvfrom(sockfd, (char *)packet, BUFFERSIZESMALL, MSG_WAITALL, 
-                 (struct sockaddr *) &si_other, &slen); 
-    packet[n] = '\0';
+    set_package(nullptr, 1);
+    len_recv = -1; 
+    while (len_recv<0){
+        my_send((const struct sockaddr *) &si_other, slen);
+        my_recv((struct sockaddr *) &si_other, &slen);
+    }
 
     close(sockfd); 
 }
 
 int WSender::read_to_data(char const *path){
-    std::ifstream fin(path, std::ios::binary);
+    std::ifstream fin;
+    fin.open(path, std::ios::in|std::ios::binary);
     fin.seekg(0, std::ios::end);
     //data.resize(fin.tellg());
     int sz = fin.tellg();
     fin.seekg(0, std::ios::beg);
     fin.read(input_data, sz);
+    fin.close();
     return sz;
-    //plz read file "path" to WSender.inputdata 
 }
 
-
-void WSender::write_to_logfile(){
+void WSender::write_to_logfile(PacketHeader *wdphdr){
     //<type> <seqNum> <length> <checksum>
-    PacketHeader *wdphdr = (struct PacketHeader*) packet;
     string log(to_string(wdphdr->type)), sep(" ");
     log += sep + to_string(wdphdr->seqNum);
     log += sep + to_string(wdphdr->length);
