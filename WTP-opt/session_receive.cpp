@@ -167,7 +167,7 @@ int WReceiver::write_to_file(char *dir, int No_of_files, int data_size){
 
 const char *WReceiver::set_outFile_path(char *dir, int No_of_files)
 {
-	string file_path = string(dir) + "/FILE_" + to_string(No_of_files)+".out";
+	string file_path = string(dir) + "/FILE-" + to_string(No_of_files)+".out";
 	return file_path.c_str();
 }
 
