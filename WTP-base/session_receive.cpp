@@ -3,6 +3,7 @@
 # include <string>
 
 # include <sys/types.h>
+# include <sys/stat.h>
 # include <sys/socket.h>
 # include <netinet/in.h>
 # include <arpa/inet.h>
@@ -94,7 +95,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 			seq_num = seqNum;
 			ptype = ACK;
 			isblock=1;
-// 			cout << "connection start" <<endl;
+			cout << "connection start" <<endl;
 			break;
 		}
 		case END:
@@ -165,6 +166,11 @@ int WReceiver::write_to_file(char *dir, int No_of_files, int data_size){
 
 const char *WReceiver::set_outFile_path(char *dir, int No_of_files)
 {
+	if(access(dir, 0) == -1)
+	{
+		mkdir(dir, S_IRWXU|S_IRWXG |S_IRWXO);
+	}
+
 	string file_path = string(dir) + "/FILE-" + to_string(No_of_files)+".out";
 	return file_path.c_str();
 }
@@ -229,7 +235,7 @@ int WReceiver::Receiver()
 			break;
 	}
 	close(sockfd);
-// 	cout << "socket is closed" << endl;
+	cout << "socket is closed" << endl;
 	return 0;
 
 }
