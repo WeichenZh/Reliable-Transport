@@ -94,7 +94,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 			seq_num = seqNum;
 			ptype = ACK;
 			isblock=1;
-			cout << "connection start" <<endl;
+// 			cout << "connection start" <<endl;
 			break;
 		}
 		case END:
@@ -229,7 +229,7 @@ int WReceiver::Receiver()
 			break;
 	}
 	close(sockfd);
-	cout << "socket is closed" << endl;
+// 	cout << "socket is closed" << endl;
 	return 0;
 
 }
