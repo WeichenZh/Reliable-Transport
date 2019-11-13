@@ -1,5 +1,6 @@
 # include <iostream>
 # include <fstream>
+# include <string>
 
 # include <sys/types.h>
 # include <sys/socket.h>
@@ -29,10 +30,13 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 {
 	strcpy(output_dir, od);
 	strcpy(log_path, lp);
+
 	port_num = pt_num;
 	win_size = wz;
 	isblock = 0;
+	no_of_connection = 0;
 	s.init(wz);
+
 	ofstream log;
 	log.open(log_path, ios::trunc);
 	log.close();
@@ -49,19 +53,13 @@ int WReceiver::set_package(char *data)
 	ACKHeader.seqNum = seq_num;				// class varible
 	ACKHeader.length = dlen;
 	ACKHeader.checksum = crc32(data, dlen);
-	
-	memcpy(buffer, (char *)&ACKHeader, total_len);
 
-	// char *buf;
-	// buf = buffer;
-	// PacketHeader *pk;
-	// pk = (struct PacketHeader *)buf;
-	// cout << pk->type << " " << pk->seqNum << " " << pk->length << endl;
+	memcpy(buffer, (char *)&ACKHeader, total_len);
 
 	return total_len;
 }
 
-int WReceiver::decode_package()
+int WReceiver::decode_package(int *dec_pkg_len)
 {
 	PacketHeader recvPacketHeader;
 	char *data=NULL;
@@ -96,6 +94,7 @@ int WReceiver::decode_package()
 			seq_num = seqNum;
 			ptype = ACK;
 			isblock=1;
+			cout << "connection start" <<endl;
 			break;
 		}
 		case END:
@@ -111,18 +110,23 @@ int WReceiver::decode_package()
 			{
 				int index;
 				index = seqNum - seq_exp;
-				s.push(seqNum, data, index);
+				s.push(seqNum, dlen, data, index);
 				seq_num = seqNum;
 			}
 			else
 			{
 				seq_num = seq_exp;
+
+				cout << *dec_pkg_len <<endl;
+				memcpy(dBuffer, data, dlen);
 				seq_exp+=1;
-				s.slide(dBuffer);
+				*dec_pkg_len = dlen;
+				*dec_pkg_len += s.slide(dBuffer+(*dec_pkg_len));
+
 				while(seq_exp==s.topup())
 				{
 					seq_exp+=1;
-					s.slide(dBuffer);
+					*dec_pkg_len += s.slide(dBuffer+(*dec_pkg_len));
 					//maybe need saving data
 				}
 			}
@@ -131,8 +135,9 @@ int WReceiver::decode_package()
 		}
 		default:
 			return -1;
-
 	}
+	// cout << "seq_exp: " << seq_exp<<endl;
+	// cout << "get seq : " << seqNum<<endl;
 	return 0;
 }
 
@@ -150,12 +155,39 @@ int WReceiver::log(char *message, char *lp)
 	return 0;
 }
 
+int WReceiver::write_to_file(char *dir, int No_of_files, int data_size){
+	 ofstream outFile;
+
+	 string file_path = set_outFile_path(dir, No_of_files);
+	 outFile.open(file_path.c_str(), ios::app|ios::binary);
+	 outFile.write(dBuffer, data_size);
+	 outFile.close();
+
+	 return 0;
+}
+
+const char *WReceiver::set_outFile_path(char *dir, int No_of_files)
+{
+	string file_path = string(dir) + "/FILE_" + to_string(No_of_files)+".out";
+	return file_path.c_str();
+}
+
+void WReceiver::count_connection()
+{
+	no_of_connection++;
+}
+
 int WReceiver::Receiver()
 {
 	struct sockaddr_in recv_addr={}, send_addr={};
 	socklen_t len = sizeof(send_addr);
 	int sockfd;
-	
+	string outFilePath = set_outFile_path(output_dir, no_of_connection);
+	ofstream output_file;
+
+	output_file.open(outFilePath.c_str(), ios::trunc);
+	output_file.close();
+
 	if((sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 		error("Error opening socket\n");
 
@@ -179,7 +211,9 @@ int WReceiver::Receiver()
 			error("Error: reading from socket\n");
 		log(buffer, log_path);
 
-		if (!decode_package())
+		memset(dBuffer, 0, dBuffersize);
+		int dec_pkg_len = 0;
+		if (!decode_package(&dec_pkg_len))
 		{
 			int len_packet = set_package((char *)"");
 			int n_send = sendto(sockfd, 
@@ -190,9 +224,11 @@ int WReceiver::Receiver()
 				len);
 			if(n_send < 0)
 				error("Error: writting to socket\n");
+
 			log(buffer, log_path);
 		}
-		if(WReceiver::stype == END)
+		write_to_file(output_dir, no_of_connection, dec_pkg_len);
+		if (WReceiver::stype ==END)
 			break;
 	}
 	close(sockfd);
