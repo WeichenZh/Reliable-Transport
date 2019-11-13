@@ -105,9 +105,20 @@ void WSender::send(char const *path){
     memset(&si_me, 0, sizeof(si_me)); 
     // Filling server information 
     si_me.sin_family = AF_INET; 
-    si_me.sin_port = htons(2000);
+    int port_me = 2000;
+    si_me.sin_port = htons(port_me);
     si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (bind(sockfd, (struct sockaddr *)&si_me, slen)<0) err("bind failed");
+    bool pass_bind = false;
+    for (int i = 0; i < 10; ++i){
+        if (bind(sockfd, (struct sockaddr *)&si_me, slen)>=0) {
+            pass_bind = true;
+            break;
+        }
+        si_me.sin_port = htons(++port_me);
+    }
+    if (!pass_bind) err("bind failed");
+
+    //if (bind(sockfd, (struct sockaddr *)&si_me, slen)<0) err("bind failed");
     struct timeval tv;
     tv.tv_sec = 1;        // 30 Secs Timeout
     tv.tv_usec = 0;        // Not init'ing this can cause strange errors
