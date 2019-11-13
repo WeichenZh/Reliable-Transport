@@ -25,7 +25,7 @@ class WSender
 
     //read_file
     char input_data[BUFFERSIZE], send_buff[BUFFERSIZESMALL], recv_buff[DATALEN], data_buffer[DATALEN];
-    int len_send, len_recv;
+    int len_send, len_recv, len_input;
 
     //other
 

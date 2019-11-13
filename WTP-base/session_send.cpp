@@ -47,7 +47,6 @@ WSender::WSender(char const *ho, int pt, int ws, char const *lp){
 }
 
 void WSender::set_package(char *d, int type, int len=0){
-    //int len = strlen(d);
     int tot_len = sizeof(struct PacketHeader) + len;
     memset(send_buff, 0, BUFFERSIZESMALL); 
     //set header
@@ -87,8 +86,8 @@ void WSender::my_recv(struct sockaddr *si_other, socklen_t *slen){
 void WSender::send(char const *path){
     //read input data
     srand(time(NULL));
-    read_to_data(path);
-
+    len_input = read_to_data(path);
+    /*
     //prepare data for debug
     char *chptr=input_data;
     for (int i = 0; i < 10000; ++i){
@@ -96,7 +95,7 @@ void WSender::send(char const *path){
         chptr += 17;
     } 
     strcpy(chptr, "FIN");
-    
+    */
     //UDP connect
     struct sockaddr_in si_me, si_other; 
     socklen_t slen = sizeof(si_other);
@@ -122,7 +121,7 @@ void WSender::send(char const *path){
 
     int dataFrameSize = (DATALEN-sizeof(struct PacketHeader));
     data_buffer[dataFrameSize] = '\0';
-    int tot_seq = seq + (strlen(input_data)/dataFrameSize) + 1;//TODO
+    int tot_seq = seq + (len_input/dataFrameSize) + 1;//TODO
     vector <bool> acks;
     acks.resize(win_size,false);
     
@@ -145,12 +144,12 @@ void WSender::send(char const *path){
     while (seq < tot_seq){
         //send
         int win_size_real = min(win_size, tot_seq-seq);
-        //for (int i = 0; i < win_size_real; ++i){
-        for (int i = win_size_real-1; i >= 0 ; --i){
-            if (i==7) continue;
+        for (int i = 0; i < win_size_real; ++i){
+        //for (int i = win_size_real-1; i >= 0 ; --i){
+            //if (i==7) continue;
             if (acks[i]) continue;
             seq_curr = seq+i;
-            int data_size = (seq_curr == tot_seq-1) ? (sizeof(input_data)%dataFrameSize):dataFrameSize;
+            int data_size = (seq_curr == tot_seq-1) ? (len_input%dataFrameSize):dataFrameSize;
             //printf("send-- seq: %d, %d, size: %d\n", seq_curr, _get_curr_seq(), data_size);
             memcpy(data_buffer,input_data+_get_curr_seq()*dataFrameSize,data_size);
             set_package(data_buffer, 2, data_size);
