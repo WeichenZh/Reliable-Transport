@@ -8,7 +8,8 @@ class slidingwindow
     unsigned int m_size;
     int m_front;
     int m_rear;
-    int*  m_data = NULL;
+    int *m_data = NULL;
+    int *m_data_len = NULL;
     char *m_buffer = NULL;
     
     public:
@@ -22,9 +23,7 @@ class slidingwindow
 
         bool isEmpty();
 
-        bool isFull() ;
-
-        int push(int seq, char *data, int index);
+        int push(int seq, int data_len, char *data, int index);
 
         int slide(char *output_data);
 
