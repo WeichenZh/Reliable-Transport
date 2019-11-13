@@ -117,7 +117,6 @@ int WReceiver::decode_package(int *dec_pkg_len)
 			{
 				seq_num = seq_exp;
 
-				cout << *dec_pkg_len <<endl;
 				memcpy(dBuffer, data, dlen);
 				seq_exp+=1;
 				*dec_pkg_len = dlen;
@@ -232,7 +231,7 @@ int WReceiver::Receiver()
 			break;
 	}
 	close(sockfd);
-	cout << "socket is closed" << endl;
+// 	cout << "socket is closed" << endl;
 	return 0;
 
 }
