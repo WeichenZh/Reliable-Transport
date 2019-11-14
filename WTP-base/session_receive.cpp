@@ -96,7 +96,6 @@ int WReceiver::decode_package(int *dec_pkg_len)
 			seq_num = seqNum;
 			ptype = ACK;
 
-			cout << "connection start" <<endl;
 			break;
 		}
 		case END:
@@ -219,7 +218,10 @@ int WReceiver::Receiver()
 			(sockaddr *)&send_addr,
 			&len);
 		if (n_recv == -1 && close_proc == 1) // time out and end connection
+		{
+			cout << "time out and quit connection " << endl;
 			break;
+		}
 
 		log(buffer, log_path);
 
