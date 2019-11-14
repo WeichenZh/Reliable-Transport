@@ -94,7 +94,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 			seq_exp = 0;
 			seq_num = seqNum;
 			ptype = ACK;
-			isblock=1;
+			// isblock=1;
 			cout << "connection start" <<endl;
 			break;
 		}
@@ -107,6 +107,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 		}
 		case DATA:
 		{
+			isblock = 1;
 			if(seq_exp!=seqNum)
 			{
 				int index;
