@@ -217,7 +217,7 @@ int WReceiver::Receiver()
 			0, 
 			(sockaddr *)&send_addr,
 			&len);
-		if (n_recv == -1 && close_proc == 1) // time out and end connection
+		if (n_recv < 0 && close_proc == 1) // time out and end connection
 		{
 			cout << "time out and quit connection " << endl;
 			break;
