@@ -13,6 +13,8 @@
 
 #include "../starter_files/crc32.h"
 
+#define HALFINTRANGE 16000
+
 
 using namespace std;
 
@@ -87,15 +89,6 @@ void WSender::send(char const *path){
     //read input data
     srand(time(NULL));
     len_input = read_to_data(path);
-    /*
-    //prepare data for debug
-    char *chptr=input_data;
-    for (int i = 0; i < 10000; ++i){
-        strcpy(chptr, "Hello from client");
-        chptr += 17;
-    } 
-    strcpy(chptr, "FIN");
-    */
     //UDP connect
     struct sockaddr_in si_me, si_other; 
     socklen_t slen = sizeof(si_other);
@@ -135,7 +128,7 @@ void WSender::send(char const *path){
     acks.resize(win_size,false);
     
     //START
-    int seq_st_true = rand() % BUFFERSIZE;
+    int seq_st_true = (rand() % HALFINTRANGE)+HALFINTRANGE;
     seq_curr = seq_st_true;
     set_package(nullptr, 0);
     //decode_package();
@@ -179,6 +172,7 @@ void WSender::send(char const *path){
             if (len_recv < 0) break;
             if (len_recv < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
             if (wdphdr->type != 3) continue;//err("recv nonACK");
+            if (wdphdr->seqNum==seq_st_true) continue;
 
             int seq_required = (wdphdr->seqNum)-seq_head_buff;
             if (seq_required > (seq-seq_head_buff)){
