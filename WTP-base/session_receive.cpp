@@ -11,6 +11,7 @@
 # include <unistd.h>
 # include <stdlib.h>
 # include <string.h>
+# include <time.h>
 
 # include "../starter_files/PacketHeader.h"
 # include "../starter_files/crc32.h"
@@ -94,7 +95,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 			seq_exp = 0;
 			seq_num = seqNum;
 			ptype = ACK;
-			// isblock=1;
+
 			cout << "connection start" <<endl;
 			break;
 		}
@@ -189,6 +190,7 @@ int WReceiver::Receiver()
 	string outFilePath = set_outFile_path(output_dir, no_of_connection);
 	ofstream output_file;
 
+	cout << outFilePath <<endl;
 	output_file.open(outFilePath.c_str(), ios::trunc);
 	output_file.close();
 
@@ -199,10 +201,15 @@ int WReceiver::Receiver()
 	recv_addr.sin_port = htons(port_num);
 	recv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
+	struct timeval tv = {0, 3000000};
+	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(struct  timeval));
+
     if( bind(sockfd , (struct sockaddr*)&recv_addr, sizeof(recv_addr) ) == -1)
     {
         error("bind");
     }
+
+    int close_proc = 0;
     while(1)
     {
 		int n_recv = recvfrom(sockfd, 
@@ -211,8 +218,9 @@ int WReceiver::Receiver()
 			0, 
 			(sockaddr *)&send_addr,
 			&len);
-		if (n_recv<0)
-			error("Error: reading from socket\n");
+		if (n_recv == -1 && close_proc == 1) // time out and end connection
+			break;
+
 		log(buffer, log_path);
 
 		memset(dBuffer, 0, dBuffersize);
@@ -233,7 +241,7 @@ int WReceiver::Receiver()
 		}
 		write_to_file(output_dir, no_of_connection, dec_pkg_len);
 		if (WReceiver::stype ==END)
-			break;
+			close_proc = 1;
 	}
 	close(sockfd);
 	cout << "socket is closed" << endl;
