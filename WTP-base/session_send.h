@@ -9,6 +9,7 @@
 #include <vector>
 #include <sys/socket.h> 
 #include "../starter_files/PacketHeader.h"
+#include <string.h> 
 using namespace std;
 
 
@@ -24,8 +25,9 @@ class WSender
     int seq, seq_curr, seq_st;
 
     //read_file
-    char input_data[BUFFERSIZE], send_buff[BUFFERSIZESMALL], recv_buff[DATALEN], data_buffer[DATALEN];
+    char send_buff[BUFFERSIZESMALL], recv_buff[DATALEN], data_buffer[DATALEN];
     int len_send, len_recv, len_input;
+    string input_data;
 
     //other
 
