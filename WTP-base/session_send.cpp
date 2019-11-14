@@ -213,6 +213,17 @@ void WSender::send(char const *path){
             if (wdphdr->seqNum == seq_st_true) break;
         }
     }
+    set_package(nullptr, 3);
+    len_recv = -1; 
+    int ctr = 0;
+    while (ctr < 2){
+        my_send((const struct sockaddr *) &si_other, slen);
+        my_recv((struct sockaddr *) &si_other, &slen);
+        if (len_recv>=0){
+            if (wdphdr->seqNum == seq_st_true) break;
+        }
+        ctr++;
+    }
 
     close(sockfd); 
 }
