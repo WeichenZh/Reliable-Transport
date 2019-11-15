@@ -1,4 +1,6 @@
 # include <iostream>
+# include <string>
+# include <fstream>
 # include <stdlib.h>
 # include <sys/types.h>
 # include <sys/socket.h>
