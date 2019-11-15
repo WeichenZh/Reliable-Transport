@@ -36,7 +36,11 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 	port_num = pt_num;
 	win_size = wz;
 	isblock = 0;
+	connect_fin = 0;
+	start_seq = 0;
+	end_seq = -1;
 	no_of_connection = 0;
+
 	s.init(wz);
 
 	ofstream log;
@@ -89,11 +93,20 @@ int WReceiver::decode_package(int *dec_pkg_len)
 	{
 		case START:
 		{
+			string outFilePath = set_outFile_path(output_dir, no_of_connection);
+			ofstream output_file;
+
+			cout << outFilePath <<endl;
+			output_file.open(outFilePath.c_str(), ios::trunc);
+			output_file.close();
+
 			if (isblock)
 				return -1;
 
 			seq_exp = 0;
 			seq_num = seqNum;
+			start_seq = seqNum;
+			connect_fin = 0;
 			ptype = ACK;
 
 			break;
@@ -101,6 +114,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 		case END:
 		{
 			seq_num = seqNum;
+			end_seq = seqNum;
 			ptype = ACK;
 			isblock=0;
 			break;
@@ -186,12 +200,12 @@ int WReceiver::Receiver()
 	struct sockaddr_in recv_addr={}, send_addr={};
 	socklen_t len = sizeof(send_addr);
 	int sockfd;
-	string outFilePath = set_outFile_path(output_dir, no_of_connection);
-	ofstream output_file;
+	// string outFilePath = set_outFile_path(output_dir, no_of_connection);
+	// ofstream output_file;
 
-	cout << outFilePath <<endl;
-	output_file.open(outFilePath.c_str(), ios::trunc);
-	output_file.close();
+	// cout << outFilePath <<endl;
+	// output_file.open(outFilePath.c_str(), ios::trunc);
+	// output_file.close();
 
 	if((sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 		error("Error opening socket\n");
@@ -200,15 +214,15 @@ int WReceiver::Receiver()
 	recv_addr.sin_port = htons(port_num);
 	recv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	struct timeval tv = {0, 3000000};
-	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(struct  timeval));
+	// struct timeval tv = {0, 3000000};
+	// setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(struct  timeval));
 
     if( bind(sockfd , (struct sockaddr*)&recv_addr, sizeof(recv_addr) ) == -1)
     {
         error("bind");
     }
 
-    int close_proc = 0;
+    // int close_proc = 0;
     while(1)
     {
 		int n_recv = recvfrom(sockfd, 
@@ -217,11 +231,13 @@ int WReceiver::Receiver()
 			0, 
 			(sockaddr *)&send_addr,
 			&len);
-		if (n_recv < 0 && close_proc == 1) // time out and end connection
-		{
-			cout << "time out and quit connection " << endl;
-			break;
-		}
+		// if (n_recv ==-1 && close_proc == 1) // time out and end connection
+		// {
+		// 	cout << "time out and quit connection " << endl;
+		// 	break;
+		// }
+		if (n_recv < 0)
+			error("Error: reading to socket\n");
 
 		log(buffer, log_path);
 
@@ -241,9 +257,14 @@ int WReceiver::Receiver()
 
 			log(buffer, log_path);
 		}
-		write_to_file(output_dir, no_of_connection, dec_pkg_len);
-		if (WReceiver::stype ==END)
-			close_proc = 1;
+		if (WReceiver::stype == DATA)
+			write_to_file(output_dir, no_of_connection, dec_pkg_len);
+		if (WReceiver::stype ==END && end_seq == start_seq && connect_fin == 0)
+		{
+			receiver.count_connection();
+			connect_fin = 1;
+			break;
+		}
 	}
 	close(sockfd);
 	cout << "socket is closed" << endl;
