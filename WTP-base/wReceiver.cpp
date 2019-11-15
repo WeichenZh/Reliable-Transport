@@ -27,7 +27,7 @@ int main(int argc, char const *argv[])
 	while(1)
 	{
 		receiver.Receiver();
-		receiver.count_connection();
+		//receiver.count_connection();
 	}
 	return 0;
 }
