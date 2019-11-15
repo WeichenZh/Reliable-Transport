@@ -96,7 +96,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 			string outFilePath = set_outFile_path(output_dir, no_of_connection);
 			ofstream output_file;
 
-			cout << outFilePath <<endl;
+			//cout << outFilePath <<endl;
 			output_file.open(outFilePath.c_str(), ios::trunc);
 			output_file.close();
 
@@ -260,7 +260,7 @@ int WReceiver::Receiver()
 		}
 	}
 	close(sockfd);
-	cout << "socket is closed" << endl;
+	//cout << "socket is closed" << endl;
 	return 0;
 
 }
