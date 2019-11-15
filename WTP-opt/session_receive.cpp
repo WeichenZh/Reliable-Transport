@@ -34,8 +34,13 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 
 	port_num = pt_num;
 	win_size = wz;
+
 	isblock = 0;
+	connect_fin = 0;
+	start_seq = 0;
+	end_seq = -1;
 	no_of_connection = 0;
+
 	s.init(wz);
 
 	ofstream log;
@@ -88,19 +93,28 @@ int WReceiver::decode_package(int *dec_pkg_len)
 	{
 		case START:
 		{
+			string outFilePath = set_outFile_path(output_dir, no_of_connection);
+			ofstream output_file;
+
+			cout << outFilePath <<endl;
+			output_file.open(outFilePath.c_str(), ios::trunc);
+			output_file.close();
+
 			if (isblock)
 				return -1;
 
 			seq_exp = 0;
 			seq_num = seqNum;
+			start_seq = seqNum;
+			connect_fin = 0;
 			ptype = ACK;
-			// isblock=1;
-			cout << "connection start" <<endl;
+
 			break;
 		}
 		case END:
 		{
 			seq_num = seqNum;
+			end_seq = seqNum;
 			ptype = ACK;
 			isblock=0;
 			break;
@@ -169,10 +183,10 @@ int WReceiver::write_to_file(char *dir, int No_of_files, int data_size){
 
 const char *WReceiver::set_outFile_path(char *dir, int No_of_files)
 {
-	if(access(dir, 0) == -1)
-	{
-		mkdir(dir, S_IRWXU|S_IRWXG |S_IRWXO);
-	}
+	// if(access(dir, 0) == -1)
+	// {
+	// 	mkdir(dir, S_IRWXU|S_IRWXG |S_IRWXO);
+	// }
 
 	string file_path = string(dir) + "/FILE-" + to_string(No_of_files)+".out";
 	return file_path.c_str();
@@ -188,11 +202,12 @@ int WReceiver::Receiver()
 	struct sockaddr_in recv_addr={}, send_addr={};
 	socklen_t len = sizeof(send_addr);
 	int sockfd;
-	string outFilePath = set_outFile_path(output_dir, no_of_connection);
-	ofstream output_file;
+	// string outFilePath = set_outFile_path(output_dir, no_of_connection);
+	// ofstream output_file;
 
-	output_file.open(outFilePath.c_str(), ios::trunc);
-	output_file.close();
+	// cout << outFilePath <<endl;
+	// output_file.open(outFilePath.c_str(), ios::trunc);
+	// output_file.close();
 
 	if((sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
 		error("Error opening socket\n");
@@ -233,12 +248,19 @@ int WReceiver::Receiver()
 
 			log(buffer, log_path);
 		}
-		write_to_file(output_dir, no_of_connection, dec_pkg_len);
-		if (WReceiver::stype ==END)
+
+		if (WReceiver::stype == DATA)
+			write_to_file(output_dir, no_of_connection, dec_pkg_len);
+
+		if (WReceiver::stype ==END && end_seq == start_seq && connect_fin == 0)
+		{
+			count_connection();
+			connect_fin = 1;
 			break;
+		}
 	}
 	close(sockfd);
-	// cout << "socket is closed" << endl;
+	cout << "socket is closed" << endl;
 	return 0;
 
 }

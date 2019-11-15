@@ -10,11 +10,12 @@ using namespace std;
 class WReceiver
 {
 	// input 
-	int port_num, win_size, no_of_connection;
+	int port_num, win_size;
 	char output_dir[1000], log_path[1000];
 
 	// socket
 	int socket;
+	int no_of_connection, connect_fin, start_seq, end_seq;
 	unsigned int seq_num, seq_exp, ptype, stype; 	// seq_num should always equal to seq_exp, except when type=START/END
 	int isblock;							//block other connection
 
