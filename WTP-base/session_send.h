@@ -1,12 +1,16 @@
 #ifndef SESSION_SEND_H
 #define SESSION_SEND_H
+
 //parameters
-#define BUFFERSIZE 1048576
 #define BUFFERSIZESMALL 2000
 #define DATALEN 1472
-#define IPSIZE 30
+#define IPSIZE 200
+
+//models
 #include <chrono>
 #include <vector>
+#include <iostream>
+#include <fstream>
 #include <sys/socket.h> 
 #include "../starter_files/PacketHeader.h"
 #include <string.h> 
@@ -18,16 +22,21 @@ class WSender
 {
     //inputs
     int port, win_size;
-    char host[IPSIZE], log_path[BUFFERSIZESMALL];
+    char host[IPSIZE], log_path[IPSIZE], input_path[IPSIZE];
     
     //connect
     int sockfd; 
     int seq, seq_curr, seq_st;
 
+    //input ctrl
+    int offset=0, last_seq=0;
+    //std::ifstream fin;
+    bool flag_fin=false;
+    string input_data, input_data_buff;
+
     //read_file
     char send_buff[BUFFERSIZESMALL], recv_buff[DATALEN], data_buffer[DATALEN];
     int len_send, len_recv, len_input;
-    string input_data;
 
     //other
 
@@ -38,7 +47,7 @@ class WSender
     void write_to_logfile(PacketHeader *wdphdr);
     void set_package(char *d, int type, int len);
     void decode_package();
-    int read_to_data(char const *path);
+    void read_to_data();
     void my_send(const sockaddr *si_other, socklen_t slen);
     void my_recv(sockaddr *si_other, socklen_t *slen);
 public:

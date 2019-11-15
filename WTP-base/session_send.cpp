@@ -2,8 +2,6 @@
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <time.h> 
-#include <iostream>
-#include <fstream>
 #include <string.h> 
 #include <arpa/inet.h> 
 #include <netinet/in.h> 
@@ -13,7 +11,9 @@
 
 #include "../starter_files/crc32.h"
 
+#define ACKSIZE 20
 #define HALFINTRANGE 16000
+#define PUREDATALEN 1456
 
 
 using namespace std;
@@ -46,6 +46,15 @@ WSender::WSender(char const *ho, int pt, int ws, char const *lp){
     win_size = ws;
     strcpy(log_path, lp);
     ofstream fileout(log_path,ios::trunc);
+
+    //loadFile
+    /*
+    fin.open(path, std::ios::in|std::ios::binary);
+    fin.seekg(0, std::ios::end);
+    len_input = fin.tellg();
+    input_data.resize(win_size*PUREDATALEN*2);
+    input_data_buff.resize(win_size*PUREDATALEN);
+    */
 }
 
 void WSender::set_package(char *d, int type, int len=0){
@@ -78,8 +87,8 @@ void WSender::my_send(const struct sockaddr *si_other, socklen_t slen){
 }
 
 void WSender::my_recv(struct sockaddr *si_other, socklen_t *slen){
-    len_recv = recvfrom(sockfd, recv_buff, DATALEN, 0, si_other, slen);
-    if (len_recv>0) {
+    len_recv = recvfrom(sockfd, recv_buff, ACKSIZE, 0, si_other, slen);
+    if (len_recv>=0) {
         write_to_logfile((struct PacketHeader*) recv_buff); 
         recv_buff[len_recv] = '\0';
     }
@@ -88,7 +97,8 @@ void WSender::my_recv(struct sockaddr *si_other, socklen_t *slen){
 void WSender::send(char const *path){
     //read input data
     srand(time(NULL));
-    len_input = read_to_data(path);
+    strcpy(input_path, path);
+    read_to_data();
     //UDP connect
     struct sockaddr_in si_me, si_other; 
     socklen_t slen = sizeof(si_other);
@@ -101,6 +111,8 @@ void WSender::send(char const *path){
     int port_me = 2000;
     si_me.sin_port = htons(port_me);
     si_me.sin_addr.s_addr = htonl(INADDR_ANY);
+    
+    // bind
     bool pass_bind = false;
     for (int i = 0; i < 10; ++i){
         if (bind(sockfd, (struct sockaddr *)&si_me, slen)>=0) {
@@ -111,9 +123,8 @@ void WSender::send(char const *path){
     }
     if (!pass_bind) err("bind failed");
 
-    //if (bind(sockfd, (struct sockaddr *)&si_me, slen)<0) err("bind failed");
-    struct timeval tv={0,500000};
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv,sizeof(struct timeval));
+    struct timeval tv={0,300000};
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(struct timeval));
     
     memset(&si_other, 0, sizeof(si_other)); 
     // Filling server information 
@@ -123,7 +134,8 @@ void WSender::send(char const *path){
 
     int dataFrameSize = (DATALEN-sizeof(struct PacketHeader));
     data_buffer[dataFrameSize] = '\0';
-    int tot_seq = seq + (len_input/dataFrameSize) + 1;//TODO
+    int tot_seq = seq + (len_input/dataFrameSize);
+    if (len_input%dataFrameSize!=0) ++tot_seq;
     vector <bool> acks;
     acks.resize(win_size,false);
     
@@ -146,6 +158,7 @@ void WSender::send(char const *path){
     seq = 0;
     seq_curr = seq;
     seq_st = seq;
+    last_seq = seq;
 
     const char *input_data_ptr = input_data.c_str();
 
@@ -172,7 +185,7 @@ void WSender::send(char const *path){
             if (len_recv < 0) break;
             if (len_recv < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
             if (wdphdr->type != 3) continue;//err("recv nonACK");
-            if (wdphdr->seqNum==seq_st_true) continue;
+            if ((wdphdr->seqNum==seq_st_true) || (wdphdr->seqNum<seq_head_buff) || (seq_head_buff>(seq_head_buff+win_size_real))) continue;
 
             int seq_required = (wdphdr->seqNum)-seq_head_buff;
             if (seq_required > (seq-seq_head_buff)){
@@ -180,9 +193,6 @@ void WSender::send(char const *path){
                 seq = (wdphdr->seqNum);
             }
             if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
-        }
-        if (len_recv==-1){ 
-            //printf("%s\n", "TIMEOUT");
         }
 
         //rearrange acks
@@ -209,19 +219,30 @@ void WSender::send(char const *path){
     }
 
     close(sockfd); 
+    //fin.close();
 }
-
-int WSender::read_to_data(char const *path){
+void WSender::read_to_data(){
     std::ifstream fin;
-    fin.open(path, std::ios::in|std::ios::binary);
+    fin.open(input_path, std::ios::in|std::ios::binary);
     fin.seekg(0, std::ios::end);
     input_data.resize(fin.tellg());
-    int sz = fin.tellg();
+    len_input = fin.tellg();
     fin.seekg(0, std::ios::beg);
-    fin.read(&input_data[0], sz);
+    fin.read(&input_data[0], len_input);
     fin.close();
-    return sz;
 }
+/*
+void WSender::read_to_data(char const *path){
+    fin.seekg(offset, std::ios::beg);
+    int sizeforsegment = PUREDATALEN*win_size
+    int readSize=min(sizeforsegment, len_input-offset);
+
+    fin.read(&input_data[offset],readSize);
+    offset+=readSize;
+    readSize=min(sizeforsegment, len_input-offset);
+    if(readSize==0){ flag_fin=true; }
+}
+*/
 
 void WSender::write_to_logfile(PacketHeader *wdphdr){
     //<type> <seqNum> <length> <checksum>
