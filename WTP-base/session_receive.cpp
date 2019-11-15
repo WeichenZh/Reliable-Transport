@@ -261,7 +261,7 @@ int WReceiver::Receiver()
 			write_to_file(output_dir, no_of_connection, dec_pkg_len);
 		if (WReceiver::stype ==END && end_seq == start_seq && connect_fin == 0)
 		{
-			receiver.count_connection();
+			count_connection();
 			connect_fin = 1;
 			break;
 		}
