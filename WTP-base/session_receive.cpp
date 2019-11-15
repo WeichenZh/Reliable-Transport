@@ -136,6 +136,7 @@ int WReceiver::decode_package(int *dec_pkg_len)
 				int index;
 				index = seqNum - seq_exp;
 				s.push(seqNum, dlen, data, index);
+				*dec_pkg_len = 0;
 			}
 			else
 			{
