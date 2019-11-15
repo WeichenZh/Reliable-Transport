@@ -111,7 +111,7 @@ void WSender::send(char const *path){
     int port_me = 2000;
     si_me.sin_port = htons(port_me);
     si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-    
+
     // bind
     bool pass_bind = false;
     for (int i = 0; i < 10; ++i){
@@ -134,8 +134,6 @@ void WSender::send(char const *path){
 
     int dataFrameSize = (DATALEN-sizeof(struct PacketHeader));
     data_buffer[dataFrameSize] = '\0';
-    int tot_seq = seq + (len_input/dataFrameSize);
-    if (len_input%dataFrameSize!=0) ++tot_seq;
     vector <bool> acks;
     acks.resize(win_size,false);
     
@@ -159,6 +157,8 @@ void WSender::send(char const *path){
     seq_curr = seq;
     seq_st = seq;
     last_seq = seq;
+    int tot_seq = seq + (len_input/dataFrameSize);
+    if (len_input%dataFrameSize!=0) ++tot_seq;
 
     const char *input_data_ptr = input_data.c_str();
 
@@ -170,7 +170,7 @@ void WSender::send(char const *path){
             //if (i==7) continue;
             if (acks[i]) continue;
             seq_curr = seq+i;
-            int data_size = (seq_curr == tot_seq-1) ? (len_input%dataFrameSize):dataFrameSize;
+            int data_size = ((seq_curr==tot_seq-1) &&(len_input%dataFrameSize!=0)) ? (len_input%dataFrameSize):dataFrameSize;
             //printf("send-- seq: %d, %d, size: %d\n", seq_curr, _get_curr_seq(), data_size);
             memcpy(data_buffer,input_data_ptr+_get_curr_seq()*dataFrameSize,data_size);
             set_package(data_buffer, 2, data_size);
