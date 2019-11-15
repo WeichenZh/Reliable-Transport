@@ -32,15 +32,16 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 {
 	s.init(wz);
 	
+	strcpy(output_dir, od);
+	strcpy(log_path, lp);
+	
 	string outFilePath = string(output_dir) + "/FILE-0.out";
 	ofstream output_file;
 
 	cout << "first create output file:"  << outFilePath <<endl;
 	output_file.open(outFilePath.c_str(), ios::trunc);
 	output_file.close();
-	
-	strcpy(output_dir, od);
-	strcpy(log_path, lp);
+
 
 	port_num = pt_num;
 	win_size = wz;
