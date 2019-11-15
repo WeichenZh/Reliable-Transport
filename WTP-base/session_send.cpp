@@ -8,12 +8,12 @@
 #include "session_send.h"
 #include <ctime>
 #include <vector>
+#include<bits/stdc++.h> 
 
 #include "../starter_files/crc32.h"
 
 #define ACKSIZE 20
 #define HALFINTRANGE 16000
-#define PUREDATALEN 1456
 
 
 using namespace std;
@@ -23,38 +23,27 @@ static int err(char const *error){
     exit(EXIT_FAILURE);
 }
 
-static bool same(char const * c, char const * tar){
-    return strcmp(c, tar)==0;
-}
-class Timer
+WSender::WSender(char const *ho, int pt, int ws, char const *lp, char const *dp):
+    port(pt), win_size(ws)
 {
-public:
-    Timer() {restart();}
-    void restart() {m_StartTime = chrono::system_clock::now();}
-    double duration_ns() {
-        return std::chrono::duration_cast<std::chrono::nanoseconds>(chrono::system_clock::now() - m_StartTime).count();
-    }
-    double duration_ms() {return duration_ns()/1000000;}
-private:
-    chrono::time_point<chrono::system_clock> m_StartTime;
-};
-
-
-WSender::WSender(char const *ho, int pt, int ws, char const *lp){
     strcpy(host, ho);
-    port     = pt;
-    win_size = ws;
-    strcpy(log_path, lp);
-    ofstream fileout(log_path,ios::trunc);
+    //strcpy(log_path, lp);
+
+    // logFile
+    fout.open(lp,ios::trunc);
 
     //loadFile
-    /*
-    fin.open(path, std::ios::in|std::ios::binary);
+    fin.open(dp, std::ios::in|std::ios::binary);
     fin.seekg(0, std::ios::end);
     len_input = fin.tellg();
-    input_data.resize(win_size*PUREDATALEN*2);
-    input_data_buff.resize(win_size*PUREDATALEN);
-    */
+    data_chunk_size = win_size*PUREDATALEN;
+    input_data.resize(data_chunk_size*2);
+    input_data_buff.resize(data_chunk_size*2);
+}
+
+WSender::~WSender(){
+    fout.close();
+    fin.close();
 }
 
 void WSender::set_package(char *d, int type, int len=0){
@@ -71,14 +60,12 @@ void WSender::set_package(char *d, int type, int len=0){
     char *data_ptr = (char *) (packet_ptr + sizeof(struct PacketHeader));
     if (len>0) memcpy(data_ptr, d, len);
     len_send = tot_len;
+    // ack
+    acks.resize(win_size,false);
 }
 
-void WSender::decode_package(){
-    char *buf = send_buff;
-    PacketHeader *wdphdr = (struct PacketHeader*) buf;
+void print_package(const PacketHeader *wdphdr){
     printf("decoding: %d,%d,%d\n", wdphdr->type, wdphdr->seqNum, wdphdr->length);
-    char *recv_buff = (char *) (buf + sizeof(struct PacketHeader));
-    printf("%s\n", recv_buff);
 }
 
 void WSender::my_send(const struct sockaddr *si_other, socklen_t slen){
@@ -94,11 +81,31 @@ void WSender::my_recv(struct sockaddr *si_other, socklen_t *slen){
     }
 }
 
-void WSender::send(char const *path){
+int WSender::load_data(int idx){
+    const char *input_data_ptr = input_data.c_str();
+    int data_size = (seq_curr==tot_seq-1) ? ((len_input-1)%PUREDATALEN+1):PUREDATALEN;
+    memcpy(data_buffer,input_data_ptr+idx*PUREDATALEN,data_size);
+    return data_size;
+}
+
+void WSender::shift_load_chunk(const int step){
+    // shift
+    printf("shift_load_chunk: %d, %d\n", len_chunk, step);
+    len_chunk -= min(step*PUREDATALEN, len_input-offset);
+    if (len_chunk<0) err("abuse shift_load_chunk");
+    char *input_data_ptr = &input_data[0];
+    char *input_data_buff_ptr = &input_data_buff[0];
+    memcpy(input_data_buff_ptr, &input_data[step*PUREDATALEN], len_chunk);
+    memset(input_data_ptr, 0, data_chunk_size*2); //clean data
+    memcpy(input_data_ptr, input_data_buff_ptr, len_chunk); //shifted
+    if ((len_chunk>=data_chunk_size) || flag_all_load) return;
+    // copy
+    read_to_data(input_data_ptr+len_chunk);
+}
+
+void WSender::send(){
     //read input data
     srand(time(NULL));
-    strcpy(input_path, path);
-    read_to_data();
     //UDP connect
     struct sockaddr_in si_me, si_other; 
     socklen_t slen = sizeof(si_other);
@@ -134,8 +141,6 @@ void WSender::send(char const *path){
 
     int dataFrameSize = (DATALEN-sizeof(struct PacketHeader));
     data_buffer[dataFrameSize] = '\0';
-    vector <bool> acks;
-    acks.resize(win_size,false);
     
     //START
     int seq_st_true = (rand() % HALFINTRANGE)+HALFINTRANGE;
@@ -156,35 +161,26 @@ void WSender::send(char const *path){
     seq = 0;
     seq_curr = seq;
     seq_st = seq;
-    last_seq = seq;
-    int tot_seq = seq + (len_input/dataFrameSize);
+    tot_seq = seq + (len_input/dataFrameSize);
     if (len_input%dataFrameSize!=0) ++tot_seq;
 
-    const char *input_data_ptr = input_data.c_str();
+    shift_load_chunk(0);
 
     while (seq < tot_seq){
         //send
         int win_size_real = min(win_size, tot_seq-seq);
         for (int i = 0; i < win_size_real; ++i){
-        //for (int i = win_size_real-1; i >= 0 ; --i){
-            //if (i==7) continue;
             if (acks[i]) continue;
             seq_curr = seq+i;
-            int data_size = ((seq_curr==tot_seq-1) &&(len_input%dataFrameSize!=0)) ? (len_input%dataFrameSize):dataFrameSize;
-            //printf("send-- seq: %d, %d, size: %d\n", seq_curr, _get_curr_seq(), data_size);
-            memcpy(data_buffer,input_data_ptr+_get_curr_seq()*dataFrameSize,data_size);
-            set_package(data_buffer, 2, data_size);
+            set_package(data_buffer, 2, load_data(i));
             my_send((const struct sockaddr *) &si_other, slen);
         }
 
-        //len_recv = 1; 
         int seq_head_buff = seq;
         while (1){
             my_recv((struct sockaddr *) &si_other, &slen);
-            //printf("recv--Seq: %d, Type: %d\n",wdphdr->seqNum,wdphdr->type);
             if (len_recv < 0) break;
-            if (len_recv < sizeof(struct PacketHeader) || wdphdr->type>3 || wdphdr->type <0) continue;// garbage
-            if (wdphdr->type != 3) continue;//err("recv nonACK");
+            if ((len_recv!=ACKSIZE) || (wdphdr->type != 3)) continue;// garbage
             if ((wdphdr->seqNum==seq_st_true) || (wdphdr->seqNum<seq_head_buff) || (seq_head_buff>(seq_head_buff+win_size_real))) continue;
 
             int seq_required = (wdphdr->seqNum)-seq_head_buff;
@@ -194,12 +190,13 @@ void WSender::send(char const *path){
             }
             if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
         }
+        
 
-        //rearrange acks
+        //rearrange acks/ reload data
         int diff = seq-seq_head_buff;
         int rest = win_size - diff;
-        //printf("diff:%d| rest:%d\n", diff, rest);
-        for (int i = 0; i < rest; ++i) acks[i] = acks[i+diff];
+        shift_load_chunk(diff);
+        std::rotate(acks.begin(), acks.begin()+diff, acks.end());
         for (int i = rest; i < win_size; ++i) acks[i] = false;
     }
     //FIN
@@ -218,31 +215,19 @@ void WSender::send(char const *path){
         }
     }
 
-    close(sockfd); 
-    //fin.close();
+    close(sockfd);
 }
-void WSender::read_to_data(){
-    std::ifstream fin;
-    fin.open(input_path, std::ios::in|std::ios::binary);
-    fin.seekg(0, std::ios::end);
-    input_data.resize(fin.tellg());
-    len_input = fin.tellg();
-    fin.seekg(0, std::ios::beg);
-    fin.read(&input_data[0], len_input);
-    fin.close();
-}
-/*
-void WSender::read_to_data(char const *path){
-    fin.seekg(offset, std::ios::beg);
-    int sizeforsegment = PUREDATALEN*win_size
-    int readSize=min(sizeforsegment, len_input-offset);
 
-    fin.read(&input_data[offset],readSize);
+void WSender::read_to_data(char *input_data_ptr){
+    fin.seekg(offset, std::ios::beg);
+    int readSize=min(data_chunk_size, len_input-offset);
+
+    fin.read(input_data_ptr,readSize);
+    len_chunk+=readSize;
     offset+=readSize;
-    readSize=min(sizeforsegment, len_input-offset);
-    if(readSize==0){ flag_fin=true; }
+    readSize=min(data_chunk_size, len_input-offset);
+    if(readSize==0) flag_all_load=true;
 }
-*/
 
 void WSender::write_to_logfile(PacketHeader *wdphdr){
     //<type> <seqNum> <length> <checksum>
@@ -250,7 +235,5 @@ void WSender::write_to_logfile(PacketHeader *wdphdr){
     log += sep + to_string(wdphdr->seqNum);
     log += sep + to_string(wdphdr->length);
     log += sep + to_string(wdphdr->checksum);
-    ofstream out(log_path,ios::app);
-    out<<log<<endl;
-    out.close();
+    fout<<log<<endl;
 }
