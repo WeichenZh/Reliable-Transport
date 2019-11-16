@@ -40,8 +40,11 @@ int slidingwindow::init(unsigned size)
     m_data_len = new (std::nothrow) int[size];
     m_buffer = new (std::nothrow) char[size*buffersize];
     for (int i=0; i<size;i++)
+    {
         m_data[i]=-1;
-    memset(m_data_len, 0, size*sizeof(int));
+        m_data_len[i] = 0;
+    }
+    // memset(m_data_len, 0, size*sizeof(int));
     memset(m_buffer, 0, size*buffersize);
     return 0;  
 }
