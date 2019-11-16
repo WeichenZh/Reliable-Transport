@@ -24,7 +24,7 @@
 # define DATA 			2
 # define ACK 			3
 # define buffersize 	2000
-# define dBuffersize 	1048576
+# define dBuffersize 	200000
 
 using namespace std;
 
