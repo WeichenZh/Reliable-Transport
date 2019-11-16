@@ -74,43 +74,47 @@ void WSender::my_send(const struct sockaddr *si_other, socklen_t slen){
 }
 
 void WSender::my_recv(struct sockaddr *si_other, socklen_t *slen){
-    len_recv = recvfrom(sockfd, recv_buff, ACKSIZE, 0, si_other, slen);
-    if (len_recv>=0) {
+    len_recv = recvfrom(sockfd, recv_buff, ACKSIZE, MSG_DONTWAIT, si_other, slen);
+    if (len_recv==ACKSIZE) {
         write_to_logfile((struct PacketHeader*) recv_buff); 
-        recv_buff[len_recv] = '\0';
+        //recv_buff[len_recv] = '\0';
     }
 }
 
 int WSender::load_data(int idx){
     const char *input_data_ptr = input_data.c_str();
-    int data_size = (seq_curr==tot_seq-1) ? ((len_input-1)%PUREDATALEN+1):PUREDATALEN;
+    int data_size = (seq_curr==(tot_seq-1)) ? ((len_input-1)%PUREDATALEN+1):PUREDATALEN;
     memcpy(data_buffer,input_data_ptr+idx*PUREDATALEN,data_size);
     return data_size;
 }
 
 void WSender::shift_load_chunk(const int step){
     // shift
-    printf("shift_load_chunk: %d, %d\n", len_chunk, step);
-    len_chunk -= min(step*PUREDATALEN, len_input-offset);
+    printf("shift_load_chunk: %d, %d, %d, seq: %d\n", len_chunk, step*PUREDATALEN, len_input-offset, seq);
+    if (seq==tot_seq) return;
+    len_chunk -= step*PUREDATALEN;
+    printf("chunk: %d\n", len_chunk);
     if (len_chunk<0) err("abuse shift_load_chunk");
     char *input_data_ptr = &input_data[0];
     char *input_data_buff_ptr = &input_data_buff[0];
+    printf("start shift\n");
     memcpy(input_data_buff_ptr, &input_data[step*PUREDATALEN], len_chunk);
     memset(input_data_ptr, 0, data_chunk_size*2); //clean data
     memcpy(input_data_ptr, input_data_buff_ptr, len_chunk); //shifted
     if ((len_chunk>=data_chunk_size) || flag_all_load) return;
     // copy
+    printf("start copy\n");
     read_to_data(input_data_ptr+len_chunk);
 }
 
 void WSender::forward_sw(int seq_recv, int seq_head_buff){
     if (seq_recv > seq){
+        tmr.restart();
         for (int i = 0; i < (seq_recv-seq_head_buff); ++i) 
             acks[i] = true;
         seq = seq_recv;
     }
 }
-
 
 void WSender::send(){
     //read input data
@@ -171,6 +175,7 @@ void WSender::send(){
     seq_curr = seq;
     seq_st = seq;
     tot_seq = seq + (len_input/dataFrameSize);
+    printf("tot_seq: %d\n", tot_seq);
     if (len_input%dataFrameSize!=0) ++tot_seq;
 
     shift_load_chunk(0);
@@ -186,21 +191,29 @@ void WSender::send(){
         }
 
         int seq_head_buff = seq;
+        tmr.restart();
         while (1){
             my_recv((struct sockaddr *) &si_other, &slen);
-            if (len_recv < 0) break;
-            if ((len_recv!=ACKSIZE) || (wdphdr->type != 3)) continue;// garbage
-            if ((wdphdr->seqNum==seq_st_true) || (wdphdr->seqNum<seq_head_buff) || (seq_head_buff>(seq_head_buff+win_size_real))) continue;
-
+            if (tmr.duration_ms() > 300) {
+                printf("TO\n");
+                break;
+            }
+            if (len_recv!=ACKSIZE) continue;
+            if (wdphdr->type != 3) continue;
+            //if (wdphdr->seqNum==seq_st_true) continue;
+            if (wdphdr->seqNum<seq_head_buff) continue;
+            if (wdphdr->seqNum>(seq_head_buff+win_size_real)) continue;
             forward_sw(wdphdr->seqNum, seq_head_buff);
-            if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
+            if ((seq-seq_head_buff) == win_size) break;
+            if (seq >= tot_seq) break;
         }
         
 
         //rearrange acks/ reload data
         int diff = seq-seq_head_buff;
         int rest = win_size - diff;
-        shift_load_chunk(diff);
+        if (diff>0) shift_load_chunk(diff);
+        else printf("skip\n");
         std::rotate(acks.begin(), acks.begin()+diff, acks.end());
         for (int i = rest; i < win_size; ++i) acks[i] = false;
     }
@@ -228,7 +241,9 @@ void WSender::read_to_data(char *input_data_ptr){
     int readSize=min(data_chunk_size, len_input-offset);
 
     fin.read(input_data_ptr,readSize);
+    printf("read:%d", len_chunk);
     len_chunk+=readSize;
+    printf(" -> %d\n", len_chunk);
     offset+=readSize;
     readSize=min(data_chunk_size, len_input-offset);
     if(readSize==0) flag_all_load=true;

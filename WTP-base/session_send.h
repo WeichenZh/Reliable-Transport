@@ -17,6 +17,18 @@
 #include <string.h> 
 using namespace std;
 
+class Timer
+{
+public:
+    Timer() {restart();}
+    void restart() {m_StartTime = chrono::system_clock::now();}
+    double duration_ns() {
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(chrono::system_clock::now() - m_StartTime).count();
+    }
+    double duration_ms() {return duration_ns()/1000000;}
+private:
+    chrono::time_point<chrono::system_clock> m_StartTime;
+};
 
 
 class WSender
@@ -43,6 +55,7 @@ protected:
     vector <bool> acks;
 
     //other
+    Timer tmr;
 
     //functions
     int _get_seq(int sq) { return sq - seq_st;}
