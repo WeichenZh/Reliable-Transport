@@ -13,9 +13,6 @@ static int err(){
     printf("Error: missing or extra arguments\n");
     exit(EXIT_FAILURE);
 }
-static bool same(char const * c, char const * tar){
-    return strcmp(c, tar)==0;
-}
 
 //<receiver-IP> <receiver-port> <window-size> <input-file> <log>
 int main(int argc, char const *argv[]){
@@ -27,7 +24,7 @@ int main(int argc, char const *argv[]){
 	win_size = atoi(argv[3]);
 	input_path = argv[4];
 	log_path = argv[5];
-	WSender sender(host, port, win_size, log_path, input_path);
-	sender.send();
+	WSender sender(host, port, win_size, log_path);
+	sender.send(input_path);
 	return 0;
 }
