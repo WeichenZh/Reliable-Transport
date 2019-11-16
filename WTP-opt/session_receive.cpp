@@ -33,12 +33,12 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 	strcpy(output_dir, od);
 	strcpy(log_path, lp);
 	
-	string outFilePath = string(output_dir) + "/FILE-0.out";
-	ofstream output_file;
+// 	string outFilePath = string(output_dir) + "/FILE-0.out";
+// 	ofstream output_file;
 
-	cout << "first create output file:"  << outFilePath <<endl;
-	output_file.open(outFilePath.c_str(), ios::trunc);
-	output_file.close();
+// 	cout << "first create output file:"  << outFilePath <<endl;
+// 	output_file.open(outFilePath.c_str(), ios::trunc);
+// 	output_file.close();
 	
 	port_num = pt_num;
 	win_size = wz;
@@ -100,7 +100,8 @@ int WReceiver::decode_package(int *dec_pkg_len)
 	{
 		case START:
 		{
-			string outFilePath = set_outFile_path(output_dir, no_of_connection);
+			//string outFilePath = set_outFile_path(output_dir, no_of_connection);
+			string outFilePath = string(output_dir) + "/FILE-" + to_string(no_of_connection) + ".out";
 			ofstream output_file;
 
 			//cout << outFilePath <<endl;
@@ -180,7 +181,8 @@ int WReceiver::log(char *message, char *lp)
 int WReceiver::write_to_file(char *dir, int No_of_files, int data_size){
 	 ofstream outFile;
 
-	 string file_path = set_outFile_path(dir, No_of_files);
+	 //string file_path = set_outFile_path(dir, No_of_files);
+	 string file_path = string(dir) + "/FILE-" + to_string(No_of_files) + ".out";
 	 outFile.open(file_path.c_str(), ios::app|ios::binary);
 	 outFile.write(dBuffer, data_size);
 	 outFile.close();
