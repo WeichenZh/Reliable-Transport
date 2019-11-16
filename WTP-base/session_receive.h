@@ -4,7 +4,7 @@
 # include "SlidingWindow.h"
 
 # define buffersize 2000
-# define dBuffersize 1048576
+# define dBuffersize 200000
 using namespace std;
 
 class WReceiver
