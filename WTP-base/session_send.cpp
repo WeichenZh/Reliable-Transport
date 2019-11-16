@@ -8,6 +8,7 @@
 #include "session_send.h"
 #include <ctime>
 #include <vector>
+//#include<bits/stdc++.h> 
 
 #include "../starter_files/crc32.h"
 
@@ -196,7 +197,7 @@ void WSender::send(char const *path){
         int diff = seq-seq_head_buff;
         int rest = win_size - diff;
 
-        std::rotate(acks.begin(), acks.begin()+diff, acks.end());
+        //std::rotate(acks.begin(), acks.begin()+diff, acks.end());
         for (int i = 0; i < rest; ++i) acks[i] = acks[i+diff];
         for (int i = rest; i < win_size; ++i) acks[i] = false;
     }
