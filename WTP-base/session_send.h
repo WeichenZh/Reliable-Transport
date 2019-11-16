@@ -21,6 +21,7 @@ using namespace std;
 
 class WSender
 {
+protected:
     //inputs
     const int port, win_size;
     char host[IPSIZE], log_path[IPSIZE], input_path[IPSIZE];
@@ -52,6 +53,7 @@ class WSender
     void read_to_data(char *input_data_ptr);
     int load_data(int idx);
     void shift_load_chunk(const int step);
+    void forward_sw(int seq_recv, int seq_head_buff);
     void my_send(const sockaddr *si_other, socklen_t slen);
     void my_recv(sockaddr *si_other, socklen_t *slen);
 public:

@@ -103,6 +103,15 @@ void WSender::shift_load_chunk(const int step){
     read_to_data(input_data_ptr+len_chunk);
 }
 
+void WSender::forward_sw(int seq_recv, int seq_head_buff){
+    if (seq_recv > seq){
+        for (int i = 0; i < (seq_recv-seq_head_buff); ++i) 
+            acks[i] = true;
+        seq = seq_recv;
+    }
+}
+
+
 void WSender::send(){
     //read input data
     srand(time(NULL));
@@ -183,11 +192,7 @@ void WSender::send(){
             if ((len_recv!=ACKSIZE) || (wdphdr->type != 3)) continue;// garbage
             if ((wdphdr->seqNum==seq_st_true) || (wdphdr->seqNum<seq_head_buff) || (seq_head_buff>(seq_head_buff+win_size_real))) continue;
 
-            int seq_required = (wdphdr->seqNum)-seq_head_buff;
-            if (seq_required > (seq-seq_head_buff)){
-                for (int i = 0; i < seq_required; ++i) acks[i] = true;
-                seq = (wdphdr->seqNum);
-            }
+            forward_sw(wdphdr->seqNum, seq_head_buff);
             if (seq-seq_head_buff == win_size or seq >= tot_seq) break;
         }
         
