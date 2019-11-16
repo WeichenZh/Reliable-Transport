@@ -74,7 +74,8 @@ void WSender::my_send(const struct sockaddr *si_other, socklen_t slen){
 }
 
 void WSender::my_recv(struct sockaddr *si_other, socklen_t *slen){
-    len_recv = recvfrom(sockfd, recv_buff, ACKSIZE, MSG_DONTWAIT, si_other, slen);
+    //len_recv = recvfrom(sockfd, recv_buff, ACKSIZE, MSG_DONTWAIT, si_other, slen);
+    len_recv = recvfrom(sockfd, recv_buff, ACKSIZE, 0, si_other, slen);
     if (len_recv==ACKSIZE) {
         write_to_logfile((struct PacketHeader*) recv_buff); 
         //recv_buff[len_recv] = '\0';
@@ -90,20 +91,20 @@ int WSender::load_data(int idx){
 
 void WSender::shift_load_chunk(const int step){
     // shift
-    printf("shift_load_chunk: %d, %d, %d, seq: %d\n", len_chunk, step*PUREDATALEN, len_input-offset, seq);
+    //printf("shift_load_chunk: %d, %d, %d, seq: %d\n", len_chunk, step*PUREDATALEN, len_input-offset, seq);
     if (seq==tot_seq) return;
     len_chunk -= step*PUREDATALEN;
-    printf("chunk: %d\n", len_chunk);
+    //printf("chunk: %d\n", len_chunk);
     if (len_chunk<0) err("abuse shift_load_chunk");
     char *input_data_ptr = &input_data[0];
     char *input_data_buff_ptr = &input_data_buff[0];
-    printf("start shift\n");
+    //printf("start shift\n");
     memcpy(input_data_buff_ptr, &input_data[step*PUREDATALEN], len_chunk);
     memset(input_data_ptr, 0, data_chunk_size*2); //clean data
     memcpy(input_data_ptr, input_data_buff_ptr, len_chunk); //shifted
     if ((len_chunk>=data_chunk_size) || flag_all_load) return;
     // copy
-    printf("start copy\n");
+    //printf("start copy\n");
     read_to_data(input_data_ptr+len_chunk);
 }
 
@@ -142,7 +143,7 @@ void WSender::send(){
         si_me.sin_port = htons(++port_me);
     }
     if (!pass_bind) err("bind failed");
-
+    
     struct timeval tv={0,300000};
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(struct timeval));
     
@@ -175,7 +176,7 @@ void WSender::send(){
     seq_curr = seq;
     seq_st = seq;
     tot_seq = seq + (len_input/dataFrameSize);
-    printf("tot_seq: %d\n", tot_seq);
+    //printf("tot_seq: %d\n", tot_seq);
     if (len_input%dataFrameSize!=0) ++tot_seq;
 
     shift_load_chunk(0);
@@ -193,16 +194,18 @@ void WSender::send(){
         int seq_head_buff = seq;
         tmr.restart();
         while (1){
+            int seq_recv = wdphdr->seqNum;
             my_recv((struct sockaddr *) &si_other, &slen);
-            if (tmr.duration_ms() > 300) {
-                printf("TO\n");
+            //if (tmr.duration_ms() > 400) {
+            if (len_recv < 0) {
+                //printf("TO\n");
                 break;
             }
             if (len_recv!=ACKSIZE) continue;
             if (wdphdr->type != 3) continue;
             //if (wdphdr->seqNum==seq_st_true) continue;
-            if (wdphdr->seqNum<seq_head_buff) continue;
-            if (wdphdr->seqNum>(seq_head_buff+win_size_real)) continue;
+            if (seq_recv<seq_head_buff) continue;
+            if (seq_recv>(seq_head_buff+win_size_real)) continue;
             forward_sw(wdphdr->seqNum, seq_head_buff);
             if ((seq-seq_head_buff) == win_size) break;
             if (seq >= tot_seq) break;
@@ -213,7 +216,7 @@ void WSender::send(){
         int diff = seq-seq_head_buff;
         int rest = win_size - diff;
         if (diff>0) shift_load_chunk(diff);
-        else printf("skip\n");
+        //else printf("skip\n");
         std::rotate(acks.begin(), acks.begin()+diff, acks.end());
         for (int i = rest; i < win_size; ++i) acks[i] = false;
     }
@@ -241,9 +244,9 @@ void WSender::read_to_data(char *input_data_ptr){
     int readSize=min(data_chunk_size, len_input-offset);
 
     fin.read(input_data_ptr,readSize);
-    printf("read:%d", len_chunk);
+    //printf("read:%d", len_chunk);
     len_chunk+=readSize;
-    printf(" -> %d\n", len_chunk);
+    //printf(" -> %d\n", len_chunk);
     offset+=readSize;
     readSize=min(data_chunk_size, len_input-offset);
     if(readSize==0) flag_all_load=true;
