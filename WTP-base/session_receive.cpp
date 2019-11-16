@@ -35,12 +35,12 @@ WReceiver::WReceiver(int pt_num, int wz, const char *od, const char *lp)
 	strcpy(output_dir, od);
 	strcpy(log_path, lp);
 	
-	string outFilePath = string(output_dir) + "/FILE-0.out";
-	ofstream output_file;
+// 	string outFilePath = string(output_dir) + "/FILE-0.out";
+// 	ofstream output_file;
 
-	cout << "first create output file:"  << outFilePath <<endl;
-	output_file.open(outFilePath.c_str(), ios::trunc);
-	output_file.close();
+// 	cout << "first create output file:"  << outFilePath <<endl;
+// 	output_file.open(outFilePath.c_str(), ios::trunc);
+// 	output_file.close();
 
 
 	port_num = pt_num;
